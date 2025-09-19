@@ -20,7 +20,7 @@ export default function App() {
   const [loadingFiles, setLoadingFiles] = useState(false);
 
   // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xD46CD728c5DD949340B121ef68ac32a0c589Afd5';
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xEBF085898e71621765bb7c71Cd11D8C368172ed4';
   const CHAIN_ID = 11155111; // Sepolia testnet
   
   // Security validation
@@ -177,12 +177,12 @@ export default function App() {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       
-          // Contract ABI with FHEVM functions
+          // Contract ABI with FHEVM-ready functions
           const abi = [
-            'function uploadCiphertext(bytes calldata ciphertext, euint32 encryptedSize, ebool isPublic) external returns (uint256)',
+            'function uploadCiphertext(bytes calldata ciphertext, bytes calldata encryptedSize, bytes calldata isPublic) external returns (uint256)',
             'function getCiphertext(uint256 id) external view returns (bytes)',
-            'function getEncryptedFileSize(uint256 id) external view returns (euint32)',
-            'function getEncryptedFileVisibility(uint256 id) external view returns (ebool)',
+            'function getEncryptedFileSize(uint256 id) external view returns (bytes)',
+            'function getEncryptedFileVisibility(uint256 id) external view returns (bytes)',
             'function getFileInfo(uint256 id) external view returns (address uploader, uint256 uploadedAt, uint256 size)',
             'function getUserFiles(address user) external view returns (uint256[])',
             'function paused() external view returns (bool)'
