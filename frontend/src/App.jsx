@@ -18,7 +18,7 @@ export default function App() {
   const [isPublic, setIsPublic] = useState(false);
 
   // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xYourSepoliaContractAddress';
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xD8c8896dae540b5F6324701349f42eAD7C6B473f';
   const CHAIN_ID = 11155111; // Sepolia testnet
   
   // Security validation
