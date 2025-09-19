@@ -290,7 +290,7 @@ export default function App() {
 
   // Delete file by ID
   async function deleteFile(fileId) {
-    if (!confirm('Are you sure you want to delete this file?')) return;
+    if (!window.confirm('Are you sure you want to delete this file?')) return;
     
     try {
       setStatus('deleting');
