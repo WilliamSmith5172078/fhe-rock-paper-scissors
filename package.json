@@ -1,0 +1,39 @@
+{
+  "name": "cloudfhe-app",
+  "version": "1.0.0",
+  "description": "CloudFHE - Cloud for Encrypted Files using Zama FHE",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:localhost": "hardhat run scripts/deploy.js --network localhost",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:start": "cd frontend && npm start",
+    "frontend:build": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomicfoundation/hardhat-network-helpers": "^1.1.0",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.8",
+    "@typechain/ethers-v5": "^10.2.1",
+    "@typechain/hardhat": "^6.1.6",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "chai": "^4.5.0",
+    "hardhat": "^2.17.0",
+    "hardhat-gas-reporter": "^1.0.10",
+    "solidity-coverage": "^0.8.16",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2"
+  },
+  "keywords": [
+    "fhe",
+    "homomorphic-encryption",
+    "blockchain",
+    "zama",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT"
+}
