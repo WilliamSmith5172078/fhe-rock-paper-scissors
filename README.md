@@ -4,7 +4,7 @@ A decentralized application (dApp) that allows users to upload and store encrypt
 
 ## 🚀 Live Demo
 
-**[Try CloudFHE on Vercel](https://cloudfhe-fp6eab4mf-avins-projects-94a43281.vercel.app)**
+**[Try CloudFHE on Vercel](https://cloudfhe-fp6eab4mf-avins-projects-94a43281.vercel.app)** (Configured for Sepolia testnet)
 
 **GitHub Repository**: [https://github.com/Avnsmith/cloudfhe-app](https://github.com/Avnsmith/cloudfhe-app)
 
@@ -39,15 +39,48 @@ cloudfhe-app/
 
 ## Quick Setup
 
-### 1. Install Dependencies
+### For Sepolia Testnet Deployment
 
-```bash
-# Install project dependencies
-npm install
+1. **Install Dependencies**
+   ```bash
+   npm install
+   npm run frontend:install
+   ```
 
-# Install frontend dependencies
-npm run frontend:install
-```
+2. **Configure Environment**
+   ```bash
+   cp env.example .env
+   # Edit .env with your Sepolia configuration:
+   # - PRIVATE_KEY: Your wallet private key
+   # - SEPOLIA_URL: Infura/Alchemy RPC URL
+   # - ETHERSCAN_API_KEY: For contract verification
+   ```
+
+3. **Deploy to Sepolia**
+   ```bash
+   npm run compile
+   npm run deploy:sepolia
+   # Copy the deployed contract address
+   ```
+
+4. **Update Frontend Configuration**
+   ```bash
+   # Set contract address in frontend/.env
+   REACT_APP_CLOUDFHE_ADDR=0xYourContractAddress
+   ```
+
+5. **Deploy to Vercel**
+   ```bash
+   vercel --prod
+   ```
+
+### For Local Development
+
+1. **Install Dependencies**
+   ```bash
+   npm install
+   npm run frontend:install
+   ```
 
 ### 2. Configure Environment Variables
 

@@ -18,12 +18,16 @@ export default function App() {
   const [isPublic, setIsPublic] = useState(false);
 
   // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-  const CHAIN_ID = 31337; // Local Hardhat network (safe for testing)
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xYourSepoliaContractAddress';
+  const CHAIN_ID = 11155111; // Sepolia testnet
   
   // Security validation
   const isContractAddressValid = (addr) => {
-    return addr && addr !== '0xYourContractAddressHere' && addr.length === 42 && addr.startsWith('0x');
+    return addr && 
+           addr !== '0xYourContractAddressHere' && 
+           addr !== '0xYourSepoliaContractAddress' && 
+           addr.length === 42 && 
+           addr.startsWith('0x');
   };
 
   // Connect to MetaMask with safety checks
@@ -39,11 +43,37 @@ export default function App() {
       const signer = provider.getSigner();
       const address = await signer.getAddress();
       
-      // Verify we're on the correct network
+      // Verify we're on the correct network (Sepolia)
       const network = await provider.getNetwork();
       if (network.chainId !== CHAIN_ID) {
-        alert(`Please switch to the correct network (Chain ID: ${CHAIN_ID})`);
-        return;
+        // Try to switch to Sepolia
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0xaa36a7' }], // 11155111 in hex
+          });
+        } catch (switchError) {
+          // If Sepolia is not added, add it
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia Test Network',
+                nativeCurrency: {
+                  name: 'SepoliaETH',
+                  symbol: 'SepoliaETH',
+                  decimals: 18
+                },
+                rpcUrls: ['https://sepolia.infura.io/v3/'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io/']
+              }]
+            });
+          } else {
+            alert('Please manually switch to Sepolia testnet in MetaMask');
+            return;
+          }
+        }
       }
 
       setUserAddress(address);
@@ -189,11 +219,11 @@ export default function App() {
       
       {/* Security Warning */}
       <div className="mb-6 p-4 bg-yellow-100 border border-yellow-400 rounded-lg">
-        <h3 className="font-bold text-yellow-800 mb-2">⚠️ Security Notice</h3>
+        <h3 className="font-bold text-yellow-800 mb-2">⚠️ Sepolia Testnet</h3>
         <p className="text-yellow-700 text-sm">
-          This is a DEMO application for educational purposes only. 
-          Do NOT use with real funds or sensitive data. 
-          This contract runs on a local test network for safety.
+          This app is configured for Sepolia testnet. You need SepoliaETH for gas fees.
+          Get test ETH from <a href="https://sepoliafaucet.com" target="_blank" rel="noopener noreferrer" className="underline">Sepolia Faucet</a>.
+          This is for testing purposes only.
         </p>
       </div>
 
@@ -223,7 +253,7 @@ export default function App() {
           Address: {CONTRACT_ADDRESS}
         </p>
         <p className="text-sm text-gray-600">
-          Network: Local Hardhat (Chain ID: {CHAIN_ID})
+          Network: Sepolia Testnet (Chain ID: {CHAIN_ID})
         </p>
       </div>
 

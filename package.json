@@ -4,7 +4,7 @@
   "description": "CloudFHE - Cloud for Encrypted Files using Zama FHE",
   "scripts": {
     "compile": "hardhat compile",
-    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:sepolia": "hardhat run scripts/deploy-sepolia.js --network sepolia",
     "deploy:localhost": "hardhat run scripts/deploy.js --network localhost",
     "frontend:install": "cd frontend && npm install",
     "frontend:start": "cd frontend && npm start",
