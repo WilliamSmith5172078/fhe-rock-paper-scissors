@@ -4,9 +4,7 @@ import {
   createEncryptedSize, 
   createEncryptedBoolean,
   requestUserDecrypt, 
-  requestPublicDecrypt,
-  decryptEncryptedSize,
-  decryptEncryptedBoolean
+  requestPublicDecrypt
 } from './fheClient';
 import { ethers } from 'ethers';
 
