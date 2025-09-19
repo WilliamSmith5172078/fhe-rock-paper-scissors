@@ -20,7 +20,7 @@ export default function App() {
   const [loadingFiles, setLoadingFiles] = useState(false);
 
   // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xEBF085898e71621765bb7c71Cd11D8C368172ed4';
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0x915747D9454B610de0aB22Faf1C61Fe2fF0d212a';
   const CHAIN_ID = 11155111; // Sepolia testnet
   
   // Security validation
@@ -177,7 +177,7 @@ export default function App() {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       
-          // Contract ABI with FHEVM-ready functions
+          // Contract ABI with FHEVM-ready functions and ACL patterns
           const abi = [
             'function uploadCiphertext(bytes calldata ciphertext, bytes calldata encryptedSize, bytes calldata isPublic) external returns (uint256)',
             'function getCiphertext(uint256 id) external view returns (bytes)',
@@ -185,7 +185,16 @@ export default function App() {
             'function getEncryptedFileVisibility(uint256 id) external view returns (bytes)',
             'function getFileInfo(uint256 id) external view returns (address uploader, uint256 uploadedAt, uint256 size)',
             'function getUserFiles(address user) external view returns (uint256[])',
-            'function paused() external view returns (bool)'
+            'function compareEncryptedFileSizes(uint256 id1, uint256 id2) external returns (bytes)',
+            'function setFileVisibility(uint256 id, bytes calldata newVisibility) external',
+            'function makeFilePubliclyDecryptable(uint256 id) external',
+            'function transferFileOwnership(uint256 id, address to, bytes calldata encryptedTransferData) external',
+            'function paused() external view returns (bool)',
+            'event FileUploaded(uint256 indexed id, address indexed uploader, uint256 size)',
+            'event AccessGranted(address indexed user, uint256 indexed fileId, string accessType)',
+            'event EncryptedComputation(uint256 indexed id, string operation)',
+            'event PublicAccessGranted(uint256 indexed fileId)',
+            'event FileVisibilityChanged(uint256 indexed id, address indexed uploader, bool isPublic)'
           ];
       
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
