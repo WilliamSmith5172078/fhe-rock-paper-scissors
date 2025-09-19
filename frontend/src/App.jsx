@@ -16,9 +16,11 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [userAddress, setUserAddress] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [userFiles, setUserFiles] = useState([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
 
   // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xD8c8896dae540b5F6324701349f42eAD7C6B473f';
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xD46CD728c5DD949340B121ef68ac32a0c589Afd5';
   const CHAIN_ID = 11155111; // Sepolia testnet
   
   // Security validation
@@ -79,9 +81,49 @@ export default function App() {
       setUserAddress(address);
       setIsConnected(true);
       setStatus('connected');
+      
+      // Load user files after connecting
+      await loadUserFiles();
     } catch (error) {
       console.error('Connection failed:', error);
       alert('Failed to connect to MetaMask. Please try again.');
+    }
+  }
+
+  // Load user files from contract
+  async function loadUserFiles() {
+    if (!isConnected || !userAddress) return;
+    
+    try {
+      setLoadingFiles(true);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const abi = [
+        'function getUserFiles(address user) external view returns (uint256[])',
+        'function getFileInfo(uint256 id) external view returns (address uploader, uint256 uploadedAt, uint256 size)'
+      ];
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
+      
+      // Get user's file IDs
+      const fileIds = await contract.getUserFiles(userAddress);
+      
+      // Get file info for each ID
+      const files = await Promise.all(
+        fileIds.map(async (id) => {
+          const info = await contract.getFileInfo(id);
+          return {
+            id: id.toNumber(),
+            uploader: info.uploader,
+            uploadedAt: new Date(info.uploadedAt.toNumber() * 1000),
+            size: info.size.toNumber()
+          };
+        })
+      );
+      
+      setUserFiles(files);
+      setLoadingFiles(false);
+    } catch (error) {
+      console.error('Failed to load user files:', error);
+      setLoadingFiles(false);
     }
   }
 
@@ -135,15 +177,16 @@ export default function App() {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       
-      // Contract ABI with FHE functions
-      const abi = [
-        'function uploadCiphertext(bytes calldata ciphertext, bytes calldata encryptedSize, bytes calldata isPublic) external returns (uint256)',
-        'function getCiphertext(uint256 id) external view returns (bytes)',
-        'function getEncryptedFileSize(uint256 id) external view returns (bytes)',
-        'function getEncryptedFileVisibility(uint256 id) external view returns (bytes)',
-        'function getFileInfo(uint256 id) external view returns (address uploader, uint256 uploadedAt, uint256 size)',
-        'function paused() external view returns (bool)'
-      ];
+          // Contract ABI with FHEVM functions
+          const abi = [
+            'function uploadCiphertext(bytes calldata ciphertext, euint32 encryptedSize, ebool isPublic) external returns (uint256)',
+            'function getCiphertext(uint256 id) external view returns (bytes)',
+            'function getEncryptedFileSize(uint256 id) external view returns (euint32)',
+            'function getEncryptedFileVisibility(uint256 id) external view returns (ebool)',
+            'function getFileInfo(uint256 id) external view returns (address uploader, uint256 uploadedAt, uint256 size)',
+            'function getUserFiles(address user) external view returns (uint256[])',
+            'function paused() external view returns (bool)'
+          ];
       
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
@@ -170,6 +213,9 @@ export default function App() {
       setStoredId(id);
       setStatus('uploaded');
       alert(`File uploaded successfully! ID: ${id}`);
+      
+      // Refresh user files list
+      await loadUserFiles();
     } catch (error) {
       console.error('Upload failed:', error);
       setStatus('error');
@@ -211,6 +257,60 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     setDecryptedBlob({ url, blob });
     setStatus('done');
+  }
+
+  // Download file by ID
+  async function downloadFile(fileId) {
+    try {
+      setStatus('fetchingCiphertext');
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const abi = ['function getCiphertext(uint256 id) external view returns (bytes)'];
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
+      const ciphertextHex = await contract.getCiphertext(fileId);
+
+      setStatus('requestingUserDecrypt');
+      const plaintext = await requestUserDecrypt(CHAIN_ID, CONTRACT_ADDRESS, ciphertextHex);
+
+      const blob = new Blob([new Uint8Array(plaintext)], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `file_${fileId}.bin`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setStatus('done');
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed. Please check the console for details.');
+    }
+  }
+
+  // Delete file by ID
+  async function deleteFile(fileId) {
+    if (!confirm('Are you sure you want to delete this file?')) return;
+    
+    try {
+      setStatus('deleting');
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const abi = ['function deleteFile(uint256 id) external'];
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+      
+      const tx = await contract.deleteFile(fileId);
+      await tx.wait();
+      
+      setStatus('deleted');
+      alert('File deleted successfully!');
+      
+      // Refresh user files list
+      await loadUserFiles();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed. Please check the console for details.');
+    }
   }
 
   return (
@@ -305,6 +405,60 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* User Files */}
+      {isConnected && (
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold">Your Files</h3>
+            <button 
+              onClick={loadUserFiles}
+              className="text-sm bg-gray-200 px-2 py-1 rounded hover:bg-gray-300"
+              disabled={loadingFiles}
+            >
+              {loadingFiles ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+          
+          {loadingFiles ? (
+            <p className="text-gray-500">Loading your files...</p>
+          ) : userFiles.length === 0 ? (
+            <p className="text-gray-500">No files uploaded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {userFiles.map((file) => (
+                <div key={file.id} className="border rounded p-3 bg-white">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">File ID: {file.id}</p>
+                      <p className="text-sm text-gray-600">
+                        Size: {(file.size / 1024).toFixed(2)} KB
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Uploaded: {file.uploadedAt.toLocaleDateString()} {file.uploadedAt.toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <div className="space-x-2">
+                      <button 
+                        onClick={() => downloadFile(file.id)}
+                        className="text-sm bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                      >
+                        Download
+                      </button>
+                      <button 
+                        onClick={() => deleteFile(file.id)}
+                        className="text-sm bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Status */}
       <div className="mb-4 p-4 bg-gray-50 rounded-lg">

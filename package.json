@@ -36,5 +36,9 @@
     "react"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@fhevm/sdk": "^0.7.0-20",
+    "@fhevm/solidity": "^0.8.0"
+  }
 }

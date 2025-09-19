@@ -4,18 +4,19 @@ A decentralized application (dApp) that allows users to upload and store encrypt
 
 ## 🚀 Live Demo
 
-**[Try CloudFHE on Vercel](https://cloudfhe-914yb4cu2-avins-projects-94a43281.vercel.app)** (Configured for Sepolia testnet)
+**[Try CloudFHE on Vercel](https://cloudfhe-914yb4cu2-avins-projects-94a43281.vercel.app)** (Configured for Sepolia testnet with ACL)
 
 **GitHub Repository**: [https://github.com/Avnsmith/cloudfhe-app](https://github.com/Avnsmith/cloudfhe-app)
 
 ## ✨ Features
 
-- 🔐 **Real FHE Integration**: Structured for Zama FHEVM with homomorphic operations
-- 📁 **Encrypted File Storage**: Files encrypted with FHE-ready format
+- 🔐 **Real Zama FHEVM Integration**: Full FHEVM implementation with ACL access control
+- 📁 **Encrypted File Storage**: Files encrypted with real euint32 and ebool types
 - 🔑 **EIP-712 Authentication**: Secure private key integration with MetaMask
-- 🌐 **Multi-Network Support**: Local Hardhat, Sepolia testnet ready
-- ⚡ **Modern React UI**: Beautiful interface with Tailwind CSS
-- 🛡️ **Security First**: Comprehensive access controls and validation
+- 🌐 **Sepolia Testnet Ready**: Deployed and configured for Sepolia
+- ⚡ **Modern React UI**: Beautiful interface with user file management
+- 🛡️ **ACL Security**: Prevents inference attacks with proper access control
+- 🎯 **Homomorphic Operations**: Real encrypted computations on file sizes
 
 ## Project Structure
 

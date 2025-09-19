@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// Note: This is a simplified FHE contract structure
-// For production, use the official Zama FHEVM with proper gateway setup
+import {FHE, euint32, ebool} from "@fhevm/solidity/lib/FHE.sol";
 
 /**
- * CloudFHE - FHE-Ready Implementation
- * - Contract structure ready for Zama FHEVM integration
- * - Stores encrypted file data with metadata
- * - Supports encrypted computations (when FHEVM is available)
- * - Implements secure access controls
+ * CloudFHE - Zama FHEVM Implementation with ACL
+ * - Full Zama FHEVM integration with real encrypted types
+ * - Stores encrypted file data with homomorphic operations
+ * - Implements comprehensive ACL access control
+ * - Prevents inference attacks through proper authorization
  *
- * FHE-READY FEATURES:
- * - Structure prepared for euint32 and ebool types
- * - Encrypted file size tracking (bytes format for now)
- * - Encrypted access permissions (bytes format for now)
- * - Homomorphic operation placeholders
+ * FHEVM FEATURES:
+ * - Real euint32 and ebool encrypted types
+ * - Homomorphic operations: add, subtract, compare
+ * - ACL access control with FHE.allow() and FHE.isSenderAllowed()
+ * - Public decryption support with FHE.makePubliclyDecryptable()
+ * - Secure encrypted file size and visibility management
  */
 contract CloudFHE {
     uint256 public nextId;
@@ -23,24 +23,25 @@ contract CloudFHE {
     uint256 public constant MAX_FILE_SIZE = 100 * 1024; // 100KB limit
     uint256 public constant MAX_FILES_PER_USER = 10; // Limit files per user
     
-    // FHE-ready data types (using bytes for encrypted data)
-    struct EncryptedFileEntry {
-        address uploader;
-        bytes ciphertext;
-        uint256 uploadedAt;
-        bool exists;
-        bytes encryptedSize; // Encrypted file size (ready for euint32)
-        bytes encryptedVisibility; // Encrypted public/private flag (ready for ebool)
-    }
+        // FHEVM data types using real encrypted types
+        struct EncryptedFileEntry {
+            address uploader;
+            bytes ciphertext;
+            uint256 uploadedAt;
+            bool exists;
+            euint32 encryptedSize; // Real FHE encrypted file size
+            ebool encryptedVisibility; // Real FHE encrypted public/private flag
+        }
 
-    struct EncryptedUserStats {
-        bytes encryptedFileCount; // Encrypted file count (ready for euint32)
-        bytes encryptedTotalSize; // Encrypted total size (ready for euint32)
-    }
+        struct EncryptedUserStats {
+            euint32 encryptedFileCount; // Real FHE encrypted file count
+            euint32 encryptedTotalSize; // Real FHE encrypted total size
+        }
 
-    mapping(uint256 => EncryptedFileEntry) public files;
-    mapping(address => uint256) public userFileCount; // Public for access control
-    mapping(address => EncryptedUserStats) public encryptedUserStats;
+        mapping(uint256 => EncryptedFileEntry) public files;
+        mapping(address => uint256) public userFileCount; // Public for access control
+        mapping(address => EncryptedUserStats) public encryptedUserStats;
+        mapping(address => uint256[]) public userFiles; // Track user's file IDs
 
     event FileUploaded(uint256 indexed id, address indexed uploader, uint256 size);
     event FileDeleted(uint256 indexed id, address indexed uploader);
@@ -67,19 +68,19 @@ contract CloudFHE {
         nextId = 1;
     }
 
-    /// Upload encrypted ciphertext with FHE-ready operations
-    function uploadCiphertext(bytes calldata ciphertext, bytes calldata encryptedSize, bytes calldata encryptedVisibility) 
-        external 
-        validFileSize(ciphertext) 
-        returns (uint256 id) 
-    {
+        /// Upload encrypted ciphertext with FHEVM operations and ACL
+        function uploadCiphertext(bytes calldata ciphertext, euint32 encryptedSize, ebool encryptedVisibility) 
+            external 
+            validFileSize(ciphertext) 
+            returns (uint256 id) 
+        {
         // Check user file limit
         require(userFileCount[msg.sender] < MAX_FILES_PER_USER, "User file limit reached");
         require(msg.sender != address(0), "Invalid sender");
         
         id = nextId++;
         
-        // Create encrypted file entry with FHE-ready data
+        // Create encrypted file entry with FHEVM data
         files[id] = EncryptedFileEntry({
             uploader: msg.sender,
             ciphertext: ciphertext,
@@ -89,13 +90,29 @@ contract CloudFHE {
             encryptedVisibility: encryptedVisibility
         });
 
-        // Store encrypted user statistics (ready for FHE operations)
+        // ACL: Grant access to encrypted data
+        // Allow the uploader to access their encrypted file size and visibility
+        FHE.allow(encryptedSize, msg.sender);
+        FHE.allow(encryptedVisibility, msg.sender);
+        
+        // Allow the contract to manage the encrypted data
+        FHE.allowThis(encryptedSize);
+        FHE.allowThis(encryptedVisibility);
+        
+        // Store encrypted user statistics using FHEVM operations
         EncryptedUserStats storage userStats = encryptedUserStats[msg.sender];
-        // Note: In full FHE implementation, these would be homomorphic operations
-        userStats.encryptedFileCount = encryptedSize; // Placeholder
-        userStats.encryptedTotalSize = encryptedSize; // Placeholder
+        // FHEVM homomorphic operations
+        userStats.encryptedFileCount = FHE.add(userStats.encryptedFileCount, FHE.asEuint32(1));
+        userStats.encryptedTotalSize = FHE.add(userStats.encryptedTotalSize, encryptedSize);
+        
+        // ACL: Grant access to updated user statistics
+        FHE.allow(userStats.encryptedFileCount, msg.sender);
+        FHE.allow(userStats.encryptedTotalSize, msg.sender);
+        FHE.allowThis(userStats.encryptedFileCount);
+        FHE.allowThis(userStats.encryptedTotalSize);
         
         userFileCount[msg.sender]++;
+        userFiles[msg.sender].push(id);
         emit FileUploaded(id, msg.sender, ciphertext.length);
         return id;
     }
@@ -105,60 +122,89 @@ contract CloudFHE {
         return files[id].ciphertext;
     }
 
-    /// Get encrypted file size (requires decryption off-chain)
-    function getEncryptedFileSize(uint256 id) external view fileExists(id) returns (bytes memory) {
-        return files[id].encryptedSize;
-    }
+        /// Get encrypted file size (requires decryption off-chain)
+        function getEncryptedFileSize(uint256 id) external view fileExists(id) returns (euint32) {
+            return files[id].encryptedSize;
+        }
 
-    /// Check if file is public (encrypted boolean)
-    function getEncryptedFileVisibility(uint256 id) external view fileExists(id) returns (bytes memory) {
-        return files[id].encryptedVisibility;
-    }
+        /// Check if file is public (encrypted boolean)
+        function getEncryptedFileVisibility(uint256 id) external view fileExists(id) returns (ebool) {
+            return files[id].encryptedVisibility;
+        }
 
-    /// Get file info with proper validation
-    function getFileInfo(uint256 id) external view fileExists(id) returns (address uploader, uint256 uploadedAt, uint256 size) {
-        EncryptedFileEntry memory file = files[id];
-        return (file.uploader, file.uploadedAt, file.ciphertext.length);
-    }
+        /// Get file info with proper validation
+        function getFileInfo(uint256 id) external view fileExists(id) returns (address uploader, uint256 uploadedAt, uint256 size) {
+            EncryptedFileEntry memory file = files[id];
+            return (file.uploader, file.uploadedAt, file.ciphertext.length);
+        }
 
-    /// FHE-Ready: Compare encrypted file sizes (placeholder for homomorphic operations)
-    function compareEncryptedFileSizes(uint256 id1, uint256 id2) 
-        external 
-        fileExists(id1) 
-        fileExists(id2) 
-        returns (bytes memory) 
-    {
-        bytes memory size1 = files[id1].encryptedSize;
-        // bytes memory size2 = files[id2].encryptedSize; // Unused for now
-        
-        // Placeholder: In full FHE implementation, this would be homomorphic comparison
-        // For now, return the first size as placeholder
-        emit EncryptedComputation(id1, "size_comparison_placeholder");
-        return size1; // Placeholder return
-    }
+        /// Get all file IDs for a user
+        function getUserFiles(address user) external view returns (uint256[] memory) {
+            return userFiles[user];
+        }
 
-    /// FHE-Ready: Check if file size is within encrypted threshold (placeholder)
-    function isFileSizeWithinThreshold(uint256 id, bytes calldata /* encryptedThreshold */) 
-        external 
-        fileExists(id) 
-        returns (bytes memory) 
-    {
-        bytes memory fileSize = files[id].encryptedSize;
-        
-        // Placeholder: In full FHE implementation, this would be homomorphic comparison
-        emit EncryptedComputation(id, "threshold_check_placeholder");
-        return fileSize; // Placeholder return
-    }
+        /// Get user file count
+        function getUserFileCount(address user) external view returns (uint256) {
+            return userFileCount[user];
+        }
 
-    /// FHE-Ready: Get encrypted total size for a user
-    function getEncryptedUserTotalSize(address user) external view returns (bytes memory) {
-        return encryptedUserStats[user].encryptedTotalSize;
-    }
+        /// FHEVM: Compare encrypted file sizes using homomorphic operations with ACL
+        function compareEncryptedFileSizes(uint256 id1, uint256 id2) 
+            external 
+            fileExists(id1) 
+            fileExists(id2) 
+            returns (ebool) 
+        {
+            euint32 size1 = files[id1].encryptedSize;
+            euint32 size2 = files[id2].encryptedSize;
+            
+            // ACL: Verify sender has access to both encrypted sizes to prevent inference attacks
+            require(FHE.isSenderAllowed(size1), "Unauthorized access to encrypted size 1");
+            require(FHE.isSenderAllowed(size2), "Unauthorized access to encrypted size 2");
+            
+            // FHEVM homomorphic comparison
+            emit EncryptedComputation(id1, "size_comparison");
+            ebool result = FHE.gt(size1, size2);
+            
+            // ACL: Allow the sender to access the comparison result
+            FHE.allow(result, msg.sender);
+            FHE.allowThis(result);
+            
+            return result;
+        }
 
-    /// FHE-Ready: Get encrypted file count for a user
-    function getEncryptedUserFileCount(address user) external view returns (bytes memory) {
-        return encryptedUserStats[user].encryptedFileCount;
-    }
+        /// FHEVM: Check if file size is within encrypted threshold with ACL
+        function isFileSizeWithinThreshold(uint256 id, euint32 encryptedThreshold) 
+            external 
+            fileExists(id) 
+            returns (ebool) 
+        {
+            euint32 fileSize = files[id].encryptedSize;
+            
+            // ACL: Verify sender has access to encrypted file size to prevent inference attacks
+            require(FHE.isSenderAllowed(fileSize), "Unauthorized access to encrypted file size");
+            require(FHE.isSenderAllowed(encryptedThreshold), "Unauthorized access to encrypted threshold");
+            
+            // FHEVM homomorphic comparison
+            emit EncryptedComputation(id, "threshold_check");
+            ebool result = FHE.le(fileSize, encryptedThreshold);
+            
+            // ACL: Allow the sender to access the threshold check result
+            FHE.allow(result, msg.sender);
+            FHE.allowThis(result);
+            
+            return result;
+        }
+
+        /// FHEVM: Get encrypted total size for a user
+        function getEncryptedUserTotalSize(address user) external view returns (euint32) {
+            return encryptedUserStats[user].encryptedTotalSize;
+        }
+
+        /// FHEVM: Get encrypted file count for a user
+        function getEncryptedUserFileCount(address user) external view returns (euint32) {
+            return encryptedUserStats[user].encryptedFileCount;
+        }
 
     /// Delete file (only by uploader or owner)
     function deleteFile(uint256 id) external fileExists(id) {
@@ -177,15 +223,35 @@ contract CloudFHE {
         userFileCount[uploader]--;
     }
 
-    /// Set file visibility (encrypted boolean operation)
-    function setFileVisibility(uint256 id, bytes calldata newVisibility) external fileExists(id) {
-        require(
-            msg.sender == files[id].uploader || msg.sender == owner,
-            "Only file uploader or owner can modify visibility"
-        );
-        
-        files[id].encryptedVisibility = newVisibility;
-    }
+        /// Set file visibility (FHEVM encrypted boolean operation) with ACL
+        function setFileVisibility(uint256 id, ebool newVisibility) external fileExists(id) {
+            require(
+                msg.sender == files[id].uploader || msg.sender == owner,
+                "Only file uploader or owner can modify visibility"
+            );
+            
+            // ACL: Verify sender has access to the new visibility value
+            require(FHE.isSenderAllowed(newVisibility), "Unauthorized access to encrypted visibility");
+            
+            // Update the encrypted visibility
+            files[id].encryptedVisibility = newVisibility;
+            
+            // ACL: Grant access to the updated visibility
+            FHE.allow(newVisibility, msg.sender);
+            FHE.allowThis(newVisibility);
+        }
+
+        /// Make file publicly decryptable (for public files)
+        function makeFilePubliclyDecryptable(uint256 id) external fileExists(id) {
+            require(
+                msg.sender == files[id].uploader || msg.sender == owner,
+                "Only file uploader or owner can make file public"
+            );
+            
+            // Make the encrypted file data publicly decryptable
+            FHE.makePubliclyDecryptable(files[id].encryptedSize);
+            FHE.makePubliclyDecryptable(files[id].encryptedVisibility);
+        }
 
     /// Emergency pause function (owner only)
     bool public paused = false;
