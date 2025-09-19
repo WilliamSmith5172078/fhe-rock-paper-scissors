@@ -20,7 +20,7 @@ export default function App() {
   const [isPublic, setIsPublic] = useState(false);
 
   // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xYourContractAddressHere';
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
   const CHAIN_ID = 31337; // Local Hardhat network (safe for testing)
   
   // Security validation
