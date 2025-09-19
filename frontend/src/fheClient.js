@@ -7,13 +7,26 @@
     */
 
 import { ethers } from 'ethers';
-import { createInstance } from '@fhevm/sdk';
+
+// Conditional import for FHEVM SDK to handle webpack issues
+let createInstance;
+try {
+  const fhevmModule = require('@fhevm/sdk');
+  createInstance = fhevmModule.createInstance;
+} catch (error) {
+  console.warn('FHEVM SDK not available, using simulation mode');
+  createInstance = null;
+}
 
 // Zama FHEVM instance
 let fhevmInstance = null;
 
 // Initialize FHEVM instance
 async function getFHEVMInstance() {
+  if (!createInstance) {
+    throw new Error('FHEVM SDK not available');
+  }
+  
   if (!fhevmInstance) {
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const network = await provider.getNetwork();
