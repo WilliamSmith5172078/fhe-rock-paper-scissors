@@ -4,7 +4,7 @@ A decentralized application (dApp) that allows users to upload and store encrypt
 
 ## 🚀 Live Demo
 
-**[Try CloudFHE on Vercel](https://cloudfhe-qhu6iinj3-avins-projects-94a43281.vercel.app)** (Complete ACL Implementation - WORKING!)
+**[Try CloudFHE on Vercel](https://cloudfhe-app.vercel.app/)** (Complete ACL Implementation - WORKING!)
 
 **GitHub Repository**: [https://github.com/Avnsmith/cloudfhe-app](https://github.com/Avnsmith/cloudfhe-app)
 
