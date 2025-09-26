@@ -180,6 +180,7 @@ export async function createEncryptedInput(fileSize, userAddress, contractAddres
     }
     
     // Create encrypted input for file size using proper SDK method
+    // The SDK expects a specific format for createEncryptedInput
     const result = await instance.createEncryptedInput({
       value: fileSize,
       user: userAddress,
@@ -187,9 +188,19 @@ export async function createEncryptedInput(fileSize, userAddress, contractAddres
     });
     
     console.log('✅ Encrypted input created with external handle:', result);
+    console.log('Result keys:', Object.keys(result));
+    console.log('Result type:', typeof result);
+    
+    // Return the result in the expected format
+    const externalValue = result.externalValue || result.handle || result;
+    const attestation = result.attestation || result.signature || "0x";
+    
+    console.log('External value:', externalValue);
+    console.log('Attestation:', attestation);
+    
     return {
-      externalValue: result.externalValue,
-      attestation: result.attestation
+      externalValue: externalValue,
+      attestation: attestation
     };
   } catch (error) {
     console.error('FHEVM Relayer encryption failed:', error);
