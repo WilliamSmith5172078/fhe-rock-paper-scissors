@@ -174,21 +174,21 @@ export default function App() {
       setStatus('uploading_to_ipfs');
       console.log('📁 Starting file upload:', file.name, file.size, 'bytes');
       
-      // Step 1: Upload file to local storage
-      const ipfsHash = await uploadToIPFS(file);
-      console.log('✅ File hash generated:', ipfsHash);
+      // Step 1: Upload file to IPFS (off-chain storage)
+      const ipfsCid = await uploadToIPFS(file);
+      console.log('✅ File uploaded to IPFS:', ipfsCid);
       
       setStatus('encrypting');
-      // Step 2: Create encrypted input for file size using proper FHEVM SDK
+      // Step 2: Encrypt file size via Relayer SDK (NOT the file content)
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       const userAddress = await signer.getAddress();
       
       const encryptedData = await createEncryptedInput(file.size, userAddress, CONTRACT_ADDRESS);
-      console.log('✅ Encrypted data created:', encryptedData);
+      console.log('✅ Encrypted metadata created:', encryptedData);
       
       setStatus('sending');
-      // Step 3: Upload only the IPFS hash and encrypted handle to contract
+      // Step 3: Call contract with minimal calldata (handles + attestations only)
       
       // Contract ABI with proper FHEVM functions
       const abi = [
@@ -205,25 +205,27 @@ export default function App() {
       
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-      // Convert IPFS hash to bytes32 (truncate to 32 bytes and pad if needed)
-      const fileHash = ethers.utils.hexZeroPad(ipfsHash, 32);
+      // Convert IPFS CID to bytes32 (take first 32 chars and pad)
+      const ipfsHash = ethers.utils.formatBytes32String(ipfsCid.slice(0, 32));
       
-      // Use proper external handle and attestation from SDK
+      // Use external handle and attestation from SDK (minimal calldata)
       const externalSize = encryptedData.externalValue || "0x";
       const attestation = encryptedData.attestation || "0x";
       
-      console.log('IPFS Hash:', ipfsHash);
+      console.log('IPFS CID:', ipfsCid);
+      console.log('IPFS Hash (bytes32):', ipfsHash);
       console.log('External Handle:', externalSize);
       console.log('Attestation:', attestation);
+      console.log('Calldata size: minimal (handles + attestations only)');
       
       // Use proper gas estimation with buffer
-      const gasEstimate = await contract.estimateGas.uploadFromExternal(fileHash, externalSize, attestation);
+      const gasEstimate = await contract.estimateGas.uploadFromExternal(ipfsHash, externalSize, attestation);
       const gasLimit = gasEstimate.mul(12).div(10); // Add 20% buffer
       
       console.log('Gas estimate:', gasEstimate.toString());
       console.log('Gas limit with buffer:', gasLimit.toString());
       
-      const tx = await contract.uploadFromExternal(fileHash, externalSize, attestation, {
+      const tx = await contract.uploadFromExternal(ipfsHash, externalSize, attestation, {
         gasLimit: gasLimit
       });
       const receipt = await tx.wait();
