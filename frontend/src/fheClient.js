@@ -11,11 +11,14 @@ import { ethers } from 'ethers';
 // Import FHEVM Relayer SDK
 let createInstance, SepoliaConfig;
 try {
+  // Try to import the FHEVM relayer SDK
   const fhevmModule = require('@zama-fhe/relayer-sdk/web');
   createInstance = fhevmModule.createInstance;
   SepoliaConfig = fhevmModule.SepoliaConfig;
+  console.log('✅ FHEVM Relayer SDK loaded successfully');
 } catch (error) {
-  console.warn('FHEVM Relayer SDK not available, using simulation mode');
+  console.warn('⚠️ FHEVM Relayer SDK not available, using simulation mode');
+  console.warn('Error details:', error.message);
   createInstance = null;
   SepoliaConfig = null;
 }

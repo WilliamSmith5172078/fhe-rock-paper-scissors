@@ -230,7 +230,20 @@ export default function App() {
     } catch (error) {
       console.error('Upload failed:', error);
       setStatus('error');
-      alert('Upload failed. Please check the console for details.');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Upload failed. ';
+      if (error.message.includes('insufficient funds')) {
+        errorMessage += 'Insufficient SepoliaETH for gas fees. Get test ETH from https://sepoliafaucet.com';
+      } else if (error.message.includes('user rejected')) {
+        errorMessage += 'Transaction was rejected by user.';
+      } else if (error.message.includes('network')) {
+        errorMessage += 'Network error. Please check your connection and try again.';
+      } else {
+        errorMessage += `Error: ${error.message}`;
+      }
+      
+      alert(errorMessage);
     }
   }
 
