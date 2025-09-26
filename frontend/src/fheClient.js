@@ -104,25 +104,33 @@ export async function retrieveFromIPFS(fileHash) {
 }
 
 // Create encrypted input using Zama Relayer SDK (proper flow)
-export async function createEncryptedInput(fileSize) {
+export async function createEncryptedInput(fileSize, userAddress, contractAddress) {
   try {
     const instance = await getFHEVMInstance();
     
-    // Create encrypted input for file size (not the file content)
-    // This creates an external handle that can be used on-chain
-    const encrypted = await instance.createEncryptedInput({
-      data: fileSize, // Just the file size, not the entire file
-      type: 'uint32'
+    // Initialize SDK if needed
+    if (instance.initSDK) {
+      await instance.initSDK();
+    }
+    
+    // Create encrypted input for file size using proper SDK method
+    const result = await instance.createEncryptedInput({
+      value: fileSize,
+      user: userAddress,
+      contract: contractAddress,
     });
     
-    console.log('✅ Encrypted input created with external handle');
-    return encrypted;
+    console.log('✅ Encrypted input created with external handle:', result);
+    return {
+      externalValue: result.externalValue,
+      attestation: result.attestation
+    };
   } catch (error) {
     console.error('FHEVM Relayer encryption failed:', error);
     // Fallback to simulation if FHEVM is not available
     console.log('⚠️ Falling back to simulation mode');
     return {
-      externalHandle: ethers.utils.hexlify(new Uint8Array(32)),
+      externalValue: ethers.utils.hexlify(new Uint8Array(32)),
       attestation: "0x"
     };
   }

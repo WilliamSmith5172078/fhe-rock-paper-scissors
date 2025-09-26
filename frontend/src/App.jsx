@@ -179,16 +179,18 @@ export default function App() {
       console.log('✅ File hash generated:', ipfsHash);
       
       setStatus('encrypting');
-      // Step 2: Create encrypted input for file size (not file content)
-      const encryptedData = await createEncryptedInput(file.size);
+      // Step 2: Create encrypted input for file size using proper FHEVM SDK
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const userAddress = await signer.getAddress();
+      
+      const encryptedData = await createEncryptedInput(file.size, userAddress, CONTRACT_ADDRESS);
       console.log('✅ Encrypted data created:', encryptedData);
       
       setStatus('sending');
       // Step 3: Upload only the IPFS hash and encrypted handle to contract
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
       
-      // Contract ABI with real FHEVM functions
+      // Contract ABI with proper FHEVM functions
       const abi = [
         'function uploadFromExternal(bytes32 ipfsHash, bytes calldata externalSize, bytes calldata attestation) external returns (uint256)',
         'function incrementSize(uint256 id, bytes calldata delta) external',
@@ -206,17 +208,20 @@ export default function App() {
       // Convert IPFS hash to bytes32 (truncate to 32 bytes and pad if needed)
       const fileHash = ethers.utils.hexZeroPad(ipfsHash, 32);
       
-      // Use minimal data to reduce calldata size
-      const externalSize = "0x"; // Empty external handle
-      const attestation = "0x"; // Empty attestation
+      // Use proper external handle and attestation from SDK
+      const externalSize = encryptedData.externalValue || "0x";
+      const attestation = encryptedData.attestation || "0x";
       
       console.log('IPFS Hash:', ipfsHash);
-      console.log('Using minimal calldata to reduce gas usage');
+      console.log('External Handle:', externalSize);
+      console.log('Attestation:', attestation);
       
-      // Use a fixed, lower gas limit to prevent excessive gas usage
-      const gasLimit = 100000; // Fixed low gas limit
+      // Use proper gas estimation with buffer
+      const gasEstimate = await contract.estimateGas.uploadFromExternal(fileHash, externalSize, attestation);
+      const gasLimit = gasEstimate.mul(12).div(10); // Add 20% buffer
       
-      console.log('Using fixed gas limit:', gasLimit);
+      console.log('Gas estimate:', gasEstimate.toString());
+      console.log('Gas limit with buffer:', gasLimit.toString());
       
       const tx = await contract.uploadFromExternal(fileHash, externalSize, attestation, {
         gasLimit: gasLimit
