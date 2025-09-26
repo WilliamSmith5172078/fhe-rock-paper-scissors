@@ -45,19 +45,55 @@ async function getFHEVMInstance() {
   return fhevmInstance;
 }
 
-// Real FHEVM encryption using Zama Relayer SDK
-export async function createEncryptedInput(plainBytes) {
+// Upload file to IPFS and get hash (off-chain storage)
+export async function uploadToIPFS(file) {
+  try {
+    // For demo purposes, we'll simulate IPFS upload
+    // In production, you would use a real IPFS service like Pinata or Infura
+    const fileHash = ethers.utils.keccak256(await file.arrayBuffer());
+    console.log('✅ File uploaded to IPFS (simulated):', fileHash);
+    return fileHash;
+  } catch (error) {
+    console.error('IPFS upload failed:', error);
+    throw new Error('Failed to upload file to IPFS');
+  }
+}
+
+// Retrieve file from IPFS (simulated)
+export async function retrieveFromIPFS(ipfsHash) {
+  try {
+    // For demo purposes, we'll simulate IPFS retrieval
+    // In production, you would use a real IPFS service
+    console.log('✅ File retrieved from IPFS (simulated):', ipfsHash);
+    return new Uint8Array(32); // Simulated file content
+  } catch (error) {
+    console.error('IPFS retrieval failed:', error);
+    throw new Error('Failed to retrieve file from IPFS');
+  }
+}
+
+// Create encrypted input using Zama Relayer SDK (proper flow)
+export async function createEncryptedInput(fileSize) {
   try {
     const instance = await getFHEVMInstance();
-    // Use FHEVM relayer to encrypt the file data
-    const encrypted = await instance.encrypt(plainBytes);
-    console.log('✅ File encrypted using Zama FHEVM Relayer');
+    
+    // Create encrypted input for file size (not the file content)
+    // This creates an external handle that can be used on-chain
+    const encrypted = await instance.createEncryptedInput({
+      data: fileSize, // Just the file size, not the entire file
+      type: 'uint32'
+    });
+    
+    console.log('✅ Encrypted input created with external handle');
     return encrypted;
   } catch (error) {
     console.error('FHEVM Relayer encryption failed:', error);
     // Fallback to simulation if FHEVM is not available
     console.log('⚠️ Falling back to simulation mode');
-    return await simulateEncryption(plainBytes);
+    return {
+      externalHandle: ethers.utils.hexlify(new Uint8Array(32)),
+      attestation: "0x"
+    };
   }
 }
 

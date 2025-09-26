@@ -1,5 +1,7 @@
 import React, {useState} from 'react';
 import { 
+  uploadToIPFS,
+  retrieveFromIPFS,
   createEncryptedInput, 
   createEncryptedSize, 
   requestUserDecrypt, 
@@ -170,48 +172,44 @@ export default function App() {
     if (!file) return alert('Please select a file');
     
     try {
-      setStatus('reading');
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuffer);
-
+      setStatus('uploading_to_ipfs');
+      // Step 1: Upload file to IPFS (off-chain storage)
+      const ipfsHash = await uploadToIPFS(file);
+      
       setStatus('encrypting');
-      // Create real FHE encrypted data
-      const ciphertext = await createEncryptedInput(uint8);
-      const encryptedSize = await createEncryptedSize(file.size);
-      // Note: encryptedVisibility not used in new contract structure
-      // const encryptedVisibility = await createEncryptedBoolean(isPublic);
-
+      // Step 2: Create encrypted input for file size (not file content)
+      const encryptedData = await createEncryptedInput(file.size);
+      
       setStatus('sending');
-      // upload encrypted data to contract using ethers
+      // Step 3: Upload only the IPFS hash and encrypted handle to contract
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       
-          // Contract ABI with real FHEVM functions
-          const abi = [
-            'function uploadFromExternal(bytes32 ipfsHash, bytes calldata externalSize, bytes calldata attestation) external returns (uint256)',
-            'function incrementSize(uint256 id, bytes calldata delta) external',
-            'function requestPublicDecryption(uint256 id) external',
-            'function setDecryptionOracle(address _oracle) external',
-            'function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)',
-            'function nextId() external view returns (uint256)',
-            'function decryptionOracle() external view returns (address)',
-            'event FileUploaded(uint256 indexed id, address indexed owner, bytes32 fileHash, bytes32 sizeHandle)',
-            'event DecryptionRequested(uint256 indexed id, bytes32[] handles, bytes4 callback)'
-          ];
+      // Contract ABI with real FHEVM functions
+      const abi = [
+        'function uploadFromExternal(bytes32 ipfsHash, bytes calldata externalSize, bytes calldata attestation) external returns (uint256)',
+        'function incrementSize(uint256 id, bytes calldata delta) external',
+        'function requestPublicDecryption(uint256 id) external',
+        'function setDecryptionOracle(address _oracle) external',
+        'function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)',
+        'function nextId() external view returns (uint256)',
+        'function decryptionOracle() external view returns (address)',
+        'event FileUploaded(uint256 indexed id, address indexed owner, bytes32 fileHash, bytes32 sizeHandle)',
+        'event DecryptionRequested(uint256 indexed id, bytes32[] handles, bytes4 callback)'
+      ];
       
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-      // For demo purposes, we'll use a simple hash of the file content as IPFS hash
-      // In production, you would upload to IPFS and get the real hash
-      const fileHash = ethers.utils.keccak256(ciphertext);
+      // Convert IPFS hash to bytes32
+      const fileHash = ethers.utils.formatBytes32String(ipfsHash.slice(0, 32));
       
-      // Convert encrypted size to the format expected by the contract
-      // In a real FHEVM implementation, this would be an externalEuint32 handle
-      const externalSize = ethers.utils.hexlify(encryptedSize);
+      // Use the external handle from the relayer SDK
+      const externalSize = encryptedData.externalHandle || "0x";
+      const attestation = encryptedData.attestation || "0x";
       
-      // For demo purposes, we'll use empty attestation
-      // In production, this would be a real attestation from the FHEVM coprocessor
-      const attestation = "0x";
+      console.log('IPFS Hash:', ipfsHash);
+      console.log('External Handle:', externalSize);
+      console.log('Attestation:', attestation);
       
       // Estimate gas first and add buffer
       const gasEstimate = await contract.estimateGas.uploadFromExternal(fileHash, externalSize, attestation);
@@ -302,10 +300,12 @@ export default function App() {
     }
 
     setStatus('requestingPublicDecrypt');
-    // For demo purposes, we'll simulate decryption using the file hash
-    // In production, you would use the fileHash to retrieve from IPFS and then decrypt
-    const simulatedCiphertext = ethers.utils.arrayify(fileData.fileHash);
-    const plaintext = await requestPublicDecrypt(simulatedCiphertext);
+    // Retrieve file from IPFS using the stored hash
+    const ipfsHash = fileData.fileHash;
+    const fileContent = await retrieveFromIPFS(ipfsHash);
+    
+    // Request public decryption
+    const plaintext = await requestPublicDecrypt(fileContent);
 
     const blob = new Blob([new Uint8Array(plaintext)], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
