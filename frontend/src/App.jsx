@@ -203,8 +203,8 @@ export default function App() {
       
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-      // Convert IPFS hash to bytes32
-      const fileHash = ethers.utils.formatBytes32String(ipfsHash.slice(0, 32));
+      // Convert IPFS hash to bytes32 (truncate to 32 bytes and pad if needed)
+      const fileHash = ethers.utils.hexZeroPad(ipfsHash, 32);
       
       // Use the external handle from the relayer SDK
       const externalSize = encryptedData.externalHandle || "0x";
