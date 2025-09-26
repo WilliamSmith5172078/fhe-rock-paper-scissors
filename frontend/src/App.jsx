@@ -3,7 +3,6 @@ import {
   uploadToIPFS,
   retrieveFromIPFS,
   createEncryptedInput, 
-  createEncryptedSize, 
   requestUserDecrypt, 
   requestPublicDecrypt
 } from './fheClient';

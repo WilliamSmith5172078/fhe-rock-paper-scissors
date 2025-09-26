@@ -45,30 +45,42 @@ async function getFHEVMInstance() {
   return fhevmInstance;
 }
 
-// Upload file to IPFS and get hash (off-chain storage)
+// Simple local storage for demo purposes (no external services needed)
+const fileStorage = new Map();
+
+// Upload file to local storage and get hash
 export async function uploadToIPFS(file) {
   try {
-    // For demo purposes, we'll simulate IPFS upload
-    // In production, you would use a real IPFS service like Pinata or Infura
+    // Create a hash of the file content
     const fileHash = ethers.utils.keccak256(await file.arrayBuffer());
-    console.log('✅ File uploaded to IPFS (simulated):', fileHash);
+    
+    // Store file in local memory (in production, this would be IPFS/S3)
+    fileStorage.set(fileHash, file);
+    
+    console.log('✅ File stored locally:', fileHash);
+    console.log('📁 File size:', file.size, 'bytes');
     return fileHash;
   } catch (error) {
-    console.error('IPFS upload failed:', error);
-    throw new Error('Failed to upload file to IPFS');
+    console.error('File storage failed:', error);
+    throw new Error('Failed to store file');
   }
 }
 
-// Retrieve file from IPFS (simulated)
-export async function retrieveFromIPFS(ipfsHash) {
+// Retrieve file from local storage
+export async function retrieveFromIPFS(fileHash) {
   try {
-    // For demo purposes, we'll simulate IPFS retrieval
-    // In production, you would use a real IPFS service
-    console.log('✅ File retrieved from IPFS (simulated):', ipfsHash);
-    return new Uint8Array(32); // Simulated file content
+    // Retrieve file from local storage
+    const file = fileStorage.get(fileHash);
+    
+    if (!file) {
+      throw new Error('File not found in storage');
+    }
+    
+    console.log('✅ File retrieved from local storage:', fileHash);
+    return await file.arrayBuffer();
   } catch (error) {
-    console.error('IPFS retrieval failed:', error);
-    throw new Error('Failed to retrieve file from IPFS');
+    console.error('File retrieval failed:', error);
+    throw new Error('Failed to retrieve file');
   }
 }
 
@@ -97,25 +109,7 @@ export async function createEncryptedInput(fileSize) {
   }
 }
 
-// Fallback simulation function
-async function simulateEncryption(plainBytes) {
-  const key = new Uint8Array(32);
-  crypto.getRandomValues(key);
-  
-  const encrypted = new Uint8Array(plainBytes.length);
-  for (let i = 0; i < plainBytes.length; i++) {
-    encrypted[i] = plainBytes[i] ^ key[i % key.length];
-  }
-  
-  const metadata = new Uint8Array(64);
-  metadata.set(key, 0);
-  
-  const result = new Uint8Array(metadata.length + encrypted.length);
-  result.set(metadata, 0);
-  result.set(encrypted, metadata.length);
-  
-  return result;
-}
+// Fallback simulation function (removed - no longer needed)
 
 // Create encrypted integer for file size using FHEVM Relayer
 export async function createEncryptedSize(fileSize) {
