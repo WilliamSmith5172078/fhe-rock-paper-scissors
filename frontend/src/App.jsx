@@ -205,8 +205,9 @@ export default function App() {
       
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-      // Convert IPFS CID to bytes32 (take first 32 chars and pad)
-      const ipfsHash = ethers.utils.formatBytes32String(ipfsCid.slice(0, 32));
+      // Convert IPFS CID to bytes32 (hash the CID and take first 32 bytes)
+      const cidHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(ipfsCid));
+      const ipfsHash = ethers.utils.hexZeroPad(cidHash, 32);
       
       // Use external handle and attestation from SDK (minimal calldata)
       const externalSize = encryptedData.externalValue || "0x";
