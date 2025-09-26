@@ -14,5 +14,8 @@
       "src": "/(.*)",
       "dest": "/frontend/$1"
     }
-  ]
+  ],
+  "env": {
+    "CI": "false"
+  }
 }
