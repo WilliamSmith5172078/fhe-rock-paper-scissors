@@ -172,12 +172,16 @@ export default function App() {
     
     try {
       setStatus('uploading_to_ipfs');
-      // Step 1: Upload file to IPFS (off-chain storage)
+      console.log('📁 Starting file upload:', file.name, file.size, 'bytes');
+      
+      // Step 1: Upload file to local storage
       const ipfsHash = await uploadToIPFS(file);
+      console.log('✅ File hash generated:', ipfsHash);
       
       setStatus('encrypting');
       // Step 2: Create encrypted input for file size (not file content)
       const encryptedData = await createEncryptedInput(file.size);
+      console.log('✅ Encrypted data created:', encryptedData);
       
       setStatus('sending');
       // Step 3: Upload only the IPFS hash and encrypted handle to contract
