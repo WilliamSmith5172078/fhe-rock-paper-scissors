@@ -213,7 +213,16 @@ export default function App() {
       // In production, this would be a real attestation from the FHEVM coprocessor
       const attestation = "0x";
       
-      const tx = await contract.uploadFromExternal(fileHash, externalSize, attestation);
+      // Estimate gas first and add buffer
+      const gasEstimate = await contract.estimateGas.uploadFromExternal(fileHash, externalSize, attestation);
+      const gasLimit = gasEstimate.mul(120).div(100); // Add 20% buffer
+      
+      console.log('Gas estimate:', gasEstimate.toString());
+      console.log('Gas limit with buffer:', gasLimit.toString());
+      
+      const tx = await contract.uploadFromExternal(fileHash, externalSize, attestation, {
+        gasLimit: gasLimit
+      });
       const receipt = await tx.wait();
 
       // parse event from receipt (FileUploaded)
@@ -235,10 +244,16 @@ export default function App() {
       let errorMessage = 'Upload failed. ';
       if (error.message.includes('insufficient funds')) {
         errorMessage += 'Insufficient SepoliaETH for gas fees. Get test ETH from https://sepoliafaucet.com';
+      } else if (error.message.includes('gas limit')) {
+        errorMessage += 'Gas limit exceeded. Try uploading a smaller file or increase gas limit in MetaMask.';
+      } else if (error.message.includes('out of gas')) {
+        errorMessage += 'Transaction ran out of gas. Try increasing gas limit in MetaMask.';
       } else if (error.message.includes('user rejected')) {
         errorMessage += 'Transaction was rejected by user.';
       } else if (error.message.includes('network')) {
         errorMessage += 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('revert')) {
+        errorMessage += 'Transaction reverted. Check contract state and try again.';
       } else {
         errorMessage += `Error: ${error.message}`;
       }

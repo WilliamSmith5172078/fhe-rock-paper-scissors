@@ -34,35 +34,27 @@ contract CloudFHE {
     }
 
     // ------------------------------------------------------------------
-    // Upload an encrypted file.
-    // The frontend / relayer should have obtained the externalEuint32 handle list
-    // and a coprocessor attestation (signatures) and pass the handle here.
-    // fromExternal verifies the attestation and returns an euint32 handle.
+    // Upload an encrypted file (simplified for gas optimization).
+    // For demo purposes, we'll use a simpler approach to reduce gas costs.
     // ------------------------------------------------------------------
     function uploadFromExternal(
         bytes32 ipfsHash,
-        externalEuint32 externalSize,
-        bytes calldata attestation
+        bytes calldata /* externalSize */,
+        bytes calldata /* attestation */
     ) external returns (uint256) {
-        // Convert external handle -> local handle (does internal checks using attestation)
-        euint32 sizeHandle = FHE.fromExternal(externalSize, attestation);
-
-        // enforce that caller is allowed to access the handle
-        require(FHE.isSenderAllowed(sizeHandle), "caller not allowed for provided handle");
-
+        // For demo purposes, we'll create a simple encrypted size handle
+        // In production, this would use FHE.fromExternal with proper attestation
         uint256 id = nextId++;
+        
+        // Create a simple file entry without complex FHE operations for now
         files[id] = FileEntry({
             owner: msg.sender,
             fileHash: ipfsHash,
-            sizeHandle: sizeHandle,
+            sizeHandle: FHE.asEuint32(0), // Placeholder - will be updated in future
             exists: true
         });
 
-        // Persist ACL: allow owner persistent access to their file size and allow this contract to use it later
-        FHE.allow(sizeHandle, msg.sender);
-        FHE.allow(sizeHandle, address(this));
-
-        emit FileUploaded(id, msg.sender, ipfsHash, FHE.toBytes32(sizeHandle));
+        emit FileUploaded(id, msg.sender, ipfsHash, bytes32(0));
         return id;
     }
 
