@@ -68,3 +68,4 @@ ETHERSCAN_API_KEY=your_api_key_here
 # Frontend contract address (set after deployment)
 REACT_APP_CLOUDFHE_ADDR=0xYourDeployedContractAddress
 ```
+

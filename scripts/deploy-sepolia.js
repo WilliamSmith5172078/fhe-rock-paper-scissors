@@ -6,9 +6,12 @@ async function main() {
   // Get the contract factory
   const CloudFHE = await ethers.getContractFactory("CloudFHE");
   
-  // Deploy the contract
+  // Deploy the contract with decryption oracle address
   console.log("📦 Deploying contract...");
-  const cloudFHE = await CloudFHE.deploy();
+  // For demo purposes, use a zero address as oracle
+  // In production, you would set this to a real decryption oracle address
+  const decryptionOracle = "0x0000000000000000000000000000000000000000";
+  const cloudFHE = await CloudFHE.deploy(decryptionOracle);
   
   // Wait for deployment to complete
   await cloudFHE.deployed();
@@ -26,7 +29,7 @@ async function main() {
     try {
       await hre.run("verify:verify", {
         address: cloudFHE.address,
-        constructorArguments: [],
+        constructorArguments: [decryptionOracle],
       });
       console.log("✅ Contract verified on Etherscan!");
     } catch (error) {
@@ -52,3 +55,4 @@ main()
     console.error("❌ Deployment failed:", error);
     process.exit(1);
   });
+

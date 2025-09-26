@@ -28,3 +28,4 @@ console.log('   - Infura: https://infura.io');
 console.log('   - Alchemy: https://alchemy.com\n');
 
 console.log('🚀 After editing .env, run: npm run deploy:sepolia');
+
