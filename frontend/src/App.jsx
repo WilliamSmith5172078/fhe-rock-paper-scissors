@@ -1,8 +1,8 @@
 import React, {useState} from 'react';
 import { 
-  uploadToIPFS,
-  retrieveFromIPFS,
-  createEncryptedInput, 
+  uploadFile,
+  getContract,
+  retrieveFile,
   requestUserDecrypt, 
   requestPublicDecrypt
 } from './fheClient';
@@ -171,67 +171,21 @@ export default function App() {
     if (!file) return alert('Please select a file');
     
     try {
-      setStatus('uploading_to_ipfs');
+      setStatus('uploading');
       console.log('📁 Starting file upload:', file.name, file.size, 'bytes');
       
-      // Step 1: Upload file to IPFS (off-chain storage)
-      const ipfsCid = await uploadToIPFS(file);
-      console.log('✅ File uploaded to IPFS:', ipfsCid);
-      
-      setStatus('encrypting');
-      // Step 2: Encrypt file size via Relayer SDK (NOT the file content)
+      // Get contract and user address
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       const userAddress = await signer.getAddress();
       
-      const encryptedData = await createEncryptedInput(file.size, userAddress, CONTRACT_ADDRESS);
-      console.log('✅ Encrypted metadata created:', encryptedData);
+      // Get contract instance
+      const contract = await getContract(signer, CONTRACT_ADDRESS);
       
-      setStatus('sending');
-      // Step 3: Call contract with minimal calldata (handles + attestations only)
+      // Use the new uploadFile function that handles the complete FHEVM flow
+      const receipt = await uploadFile(file, contract, userAddress);
       
-      // Contract ABI with proper FHEVM functions
-      const abi = [
-        'function uploadFromExternal(bytes32 ipfsHash, bytes calldata externalSize, bytes calldata attestation) external returns (uint256)',
-        'function incrementSize(uint256 id, bytes calldata delta) external',
-        'function requestPublicDecryption(uint256 id) external',
-        'function setDecryptionOracle(address _oracle) external',
-        'function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)',
-        'function nextId() external view returns (uint256)',
-        'function decryptionOracle() external view returns (address)',
-        'event FileUploaded(uint256 indexed id, address indexed owner, bytes32 fileHash, bytes32 sizeHandle)',
-        'event DecryptionRequested(uint256 indexed id, bytes32[] handles, bytes4 callback)'
-      ];
-      
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-
-      // Convert IPFS CID to bytes32 (hash the CID and take first 32 bytes)
-      const cidHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(ipfsCid));
-      const ipfsHash = ethers.utils.hexZeroPad(cidHash, 32);
-      
-      // Use external handle and attestation from SDK (minimal calldata)
-      const externalSize = encryptedData.externalValue || "0x";
-      const attestation = encryptedData.attestation || "0x";
-      
-      console.log('IPFS CID:', ipfsCid);
-      console.log('IPFS Hash (bytes32):', ipfsHash);
-      console.log('External Handle:', externalSize);
-      console.log('Attestation:', attestation);
-      console.log('Calldata size: minimal (handles + attestations only)');
-      
-      // Use proper gas estimation with buffer
-      const gasEstimate = await contract.estimateGas.uploadFromExternal(ipfsHash, externalSize, attestation);
-      const gasLimit = gasEstimate.mul(12).div(10); // Add 20% buffer
-      
-      console.log('Gas estimate:', gasEstimate.toString());
-      console.log('Gas limit with buffer:', gasLimit.toString());
-      
-      const tx = await contract.uploadFromExternal(ipfsHash, externalSize, attestation, {
-        gasLimit: gasLimit
-      });
-      const receipt = await tx.wait();
-
-      // parse event from receipt (FileUploaded)
+      // Parse event from receipt (FileUploaded)
       const event = receipt.events?.find(ev => ev.event === 'FileUploaded');
       let id = null;
       if (event && event.args) id = event.args[0].toNumber();
@@ -310,7 +264,7 @@ export default function App() {
     setStatus('requestingPublicDecrypt');
     // Retrieve file from IPFS using the stored hash
     const ipfsHash = fileData.fileHash;
-    const fileContent = await retrieveFromIPFS(ipfsHash);
+    const fileContent = await retrieveFile(ipfsHash);
     
     // Request public decryption
     const plaintext = await requestPublicDecrypt(fileContent);
