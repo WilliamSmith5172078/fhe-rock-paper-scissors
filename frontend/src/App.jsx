@@ -206,20 +206,17 @@ export default function App() {
       // Convert IPFS hash to bytes32 (truncate to 32 bytes and pad if needed)
       const fileHash = ethers.utils.hexZeroPad(ipfsHash, 32);
       
-      // Use the external handle from the relayer SDK
-      const externalSize = encryptedData.externalHandle || "0x";
-      const attestation = encryptedData.attestation || "0x";
+      // Use minimal data to reduce calldata size
+      const externalSize = "0x"; // Empty external handle
+      const attestation = "0x"; // Empty attestation
       
       console.log('IPFS Hash:', ipfsHash);
-      console.log('External Handle:', externalSize);
-      console.log('Attestation:', attestation);
+      console.log('Using minimal calldata to reduce gas usage');
       
-      // Estimate gas first and add buffer
-      const gasEstimate = await contract.estimateGas.uploadFromExternal(fileHash, externalSize, attestation);
-      const gasLimit = gasEstimate.mul(120).div(100); // Add 20% buffer
+      // Use a fixed, lower gas limit to prevent excessive gas usage
+      const gasLimit = 100000; // Fixed low gas limit
       
-      console.log('Gas estimate:', gasEstimate.toString());
-      console.log('Gas limit with buffer:', gasLimit.toString());
+      console.log('Using fixed gas limit:', gasLimit);
       
       const tx = await contract.uploadFromExternal(fileHash, externalSize, attestation, {
         gasLimit: gasLimit
