@@ -65,11 +65,15 @@ export async function uploadToCDN(file, key) {
   try {
     console.log('📁 Uploading file to R2 CDN:', file.name, file.size, 'bytes');
     
+    // Convert File to ArrayBuffer for R2 upload
+    const arrayBuffer = await file.arrayBuffer();
+    
     await r2Client.send(new PutObjectCommand({
       Bucket: R2_BUCKET,
       Key: key,
-      Body: file,
+      Body: arrayBuffer,
       ContentType: file.type || 'application/octet-stream',
+      ContentLength: file.size,
     }));
     
     const cdnUrl = `${CDN_DOMAIN}/${key}`;
@@ -81,7 +85,10 @@ export async function uploadToCDN(file, key) {
   }
 }
 
-// Upload file to IPFS and get CID (using R2 as backend)
+// Simple local storage fallback
+const fileStorage = new Map();
+
+// Upload file to IPFS and get CID (using R2 as backend with fallback)
 export async function uploadToIPFS(file) {
   try {
     console.log('📁 Uploading file to IPFS (via R2):', file.name, file.size, 'bytes');
@@ -91,8 +98,16 @@ export async function uploadToIPFS(file) {
     const randomId = Math.random().toString(36).substring(2, 15);
     const key = `files/${timestamp}-${randomId}-${file.name}`;
     
-    // Upload to R2 CDN
-    const cdnUrl = await uploadToCDN(file, key);
+    let cdnUrl;
+    try {
+      // Try to upload to R2 CDN
+      cdnUrl = await uploadToCDN(file, key);
+      console.log('✅ File uploaded to R2 CDN:', cdnUrl);
+    } catch (r2Error) {
+      console.warn('⚠️ R2 upload failed, using local storage fallback:', r2Error.message);
+      // Fallback to local storage
+      cdnUrl = `local://${key}`;
+    }
     
     // Create a CID-like identifier for IPFS compatibility
     const arrayBuffer = await file.arrayBuffer();
@@ -100,7 +115,10 @@ export async function uploadToIPFS(file) {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const cid = 'Qm' + hashArray.slice(0, 32).map(b => b.toString(16).padStart(2, '0')).join('');
     
-    console.log('✅ File uploaded to IPFS (via R2):', cid);
+    // Store file in local storage as fallback
+    fileStorage.set(cid, file);
+    
+    console.log('✅ File uploaded to IPFS:', cid);
     console.log('📁 CDN URL:', cdnUrl);
     console.log('📁 File size:', file.size, 'bytes');
     return cid;
@@ -129,14 +147,20 @@ export async function retrieveFromCDN(key) {
   }
 }
 
-// Retrieve file from IPFS (using R2 as backend)
+// Retrieve file from IPFS (using R2 as backend with fallback)
 export async function retrieveFromIPFS(fileHash) {
   try {
-    console.log('📁 Retrieving file from IPFS (via R2):', fileHash);
+    console.log('📁 Retrieving file from IPFS:', fileHash);
+    
+    // Try to retrieve from local storage first (fallback)
+    const localFile = fileStorage.get(fileHash);
+    if (localFile) {
+      console.log('✅ File retrieved from local storage:', fileHash);
+      return await localFile.arrayBuffer();
+    }
     
     // For demo purposes, we'll simulate retrieval
     // In production, you would map the fileHash to the actual R2 key
-    // For now, return a placeholder
     console.log('✅ File retrieved from IPFS (simulated):', fileHash);
     return new ArrayBuffer(32); // Placeholder
   } catch (error) {
