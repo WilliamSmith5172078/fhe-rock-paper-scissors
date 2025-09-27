@@ -7,6 +7,22 @@ import CloudFHE from "./CloudFHE.json";
 import { create as createIpfsClient } from "ipfs-http-client";
 const ipfs = createIpfsClient({ url: "https://ipfs.infura.io:5001/api/v0" });
 
+// FHEVM Relayer Configuration
+const FHEVM_CONFIG = {
+  ...SepoliaConfig,
+  projectId: process.env.REACT_APP_FHEVM_PROJECT_ID || "your-project-id",
+  // Add other required configuration
+  apiKey: process.env.REACT_APP_FHEVM_API_KEY || "your-api-key",
+  // You may need to get these from Zama FHEVM dashboard
+};
+
+// Check if FHEVM is properly configured
+const isFHEVMConfigured = () => {
+  const projectId = process.env.REACT_APP_FHEVM_PROJECT_ID;
+  const apiKey = process.env.REACT_APP_FHEVM_API_KEY;
+  return projectId && projectId !== "your-project-id" && apiKey && apiKey !== "your-api-key";
+};
+
 // Connect to deployed CloudFHE contract
 export async function getContract(signerOrProvider, contractAddress) {
   return new ethers.Contract(contractAddress, CloudFHE.abi, signerOrProvider);
@@ -25,7 +41,12 @@ export async function uploadFile(file, contract, userAddress) {
 
     // 2. Init relayer SDK
     console.log('🔐 Initializing FHEVM Relayer SDK...');
-    const instance = createInstance(SepoliaConfig);
+    
+    if (!isFHEVMConfigured()) {
+      throw new Error('FHEVM not configured. Please set REACT_APP_FHEVM_PROJECT_ID and REACT_APP_FHEVM_API_KEY in your .env file. Get these from https://fhevm.zama.ai/');
+    }
+    
+    const instance = createInstance(FHEVM_CONFIG);
     await instance.initSDK();
     console.log('✅ FHEVM Relayer SDK initialized');
 
@@ -109,7 +130,7 @@ export async function retrieveFromIPFS(ipfsHash) {
 
 export async function createEncryptedInput(fileSize, userAddress, contractAddress) {
   try {
-    const instance = createInstance(SepoliaConfig);
+    const instance = createInstance(FHEVM_CONFIG);
     await instance.initSDK();
     
     const result = await instance.createEncryptedInput({
@@ -131,7 +152,7 @@ export async function createEncryptedInput(fileSize, userAddress, contractAddres
 // User decryption with EIP-712 signing
 export async function requestUserDecrypt(chainId, contractAddress, ciphertext) {
   try {
-    const instance = createInstance(SepoliaConfig);
+    const instance = createInstance(FHEVM_CONFIG);
     await instance.initSDK();
     
     const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -174,7 +195,7 @@ export async function requestUserDecrypt(chainId, contractAddress, ciphertext) {
 // Public decryption
 export async function requestPublicDecrypt(ciphertext) {
   try {
-    const instance = createInstance(SepoliaConfig);
+    const instance = createInstance(FHEVM_CONFIG);
     await instance.initSDK();
     
     const decryptedData = await instance.decrypt(ciphertext);
