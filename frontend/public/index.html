@@ -10,6 +10,12 @@
       content="CloudFHE - Cloud for Encrypted Files using Zama FHE"
     />
     <title>CloudFHE</title>
+    <script>
+      // Fix for Node.js global in browser - MUST be first
+      if (typeof global === "undefined") {
+        window.global = window;
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

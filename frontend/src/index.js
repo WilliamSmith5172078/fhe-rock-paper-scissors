@@ -1,12 +1,14 @@
+// Fix for Node.js global in browser - MUST be first
+if (typeof global === "undefined") {
+  window.global = window;
+}
+
+/* eslint-disable import/first */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-
-// Fix for Node.js global in browser
-if (typeof global === "undefined") {
-  window.global = window;
-}
+/* eslint-enable import/first */
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
