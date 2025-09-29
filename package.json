@@ -1,7 +1,7 @@
 {
-  "name": "cloudfhe-app",
+  "name": "fhe-rock-paper-scissors",
   "version": "1.0.0",
-  "description": "CloudFHE - Cloud for Encrypted Files using Zama FHE",
+  "description": "Privacy-Preserving Rock Paper Scissors Game with FHEVM",
   "scripts": {
     "compile": "hardhat compile",
     "deploy:sepolia": "hardhat run scripts/deploy-sepolia.js --network sepolia",
@@ -9,7 +9,9 @@
     "deploy:localhost": "hardhat run scripts/deploy.js --network localhost",
     "frontend:install": "cd frontend && npm install",
     "frontend:start": "cd frontend && npm start",
-    "frontend:build": "cd frontend && npm run build"
+    "frontend:build": "cd frontend && npm run build",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
@@ -22,6 +24,7 @@
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
     "chai": "^4.5.0",
+    "dotenv": "^17.2.2",
     "hardhat": "^2.17.0",
     "hardhat-gas-reporter": "^1.0.10",
     "solidity-coverage": "^0.8.16",
@@ -33,9 +36,14 @@
     "homomorphic-encryption",
     "blockchain",
     "zama",
-    "react"
+    "react",
+    "rock-paper-scissors",
+    "privacy",
+    "game",
+    "web3",
+    "ethereum"
   ],
-  "author": "",
+  "author": "FHE Game Studio",
   "license": "MIT",
   "dependencies": {
     "@fhevm/sdk": "^0.7.0-20",

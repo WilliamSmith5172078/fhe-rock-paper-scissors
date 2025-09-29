@@ -1,210 +1,315 @@
-# CloudFHE - FHE-Ready Encrypted File Storage
+# 🪨✂️📄 FHE Rock Paper Scissors
 
-A decentralized application (dApp) that allows users to upload and store encrypted files on the blockchain using **real Zama FHEVM technology**. This is a production-ready FHE implementation that can be easily upgraded to use the full Zama FHEVM SDK.
+A privacy-preserving Rock Paper Scissors game powered by Zama FHEVM. Fully homomorphic encryption keeps player choices private.
 
-## 🚀 Live Demo
+## 🌟 Features
 
-**[Try CloudFHE on Vercel](https://cloudfhe-app.vercel.app/)** (Complete ACL Implementation - WORKING!)
+- 🔐 **Privacy**: Choices encrypted with FHEVM
+- 🎮 **Realtime**: Create and join rooms
+- 💰 **Betting**: Stake ETH to play
+- 🏆 **Stats**: Player and global statistics
+- 🌐 **Sepolia Testnet**: Deployed on Ethereum Sepolia
+- ⚡ **Modern UI**: Responsive React UI
 
-**GitHub Repository**: [https://github.com/Avnsmith/cloudfhe-app](https://github.com/Avnsmith/cloudfhe-app)
+## 🎯 Game Rules
 
-## ✨ Features
+### Basics
+1. **Choose**: Rock(🪨), Scissors(✂️), Paper(📄)
+2. **Create**: Player1 creates a game and submits encrypted choice
+3. **Join**: Player2 joins and submits encrypted choice
+4. **Compute**: Result computed under encryption
+5. **Prize**: Winner takes double stake
 
-- 🔐 **Real Zama FHEVM Integration**: Full FHEVM implementation with ACL access control
-- 📁 **Encrypted File Storage**: Files encrypted with real euint32 and ebool types
-- 🔑 **EIP-712 Authentication**: Secure private key integration with MetaMask
-- 🌐 **Sepolia Testnet Ready**: Deployed and configured for Sepolia
-- ⚡ **Modern React UI**: Beautiful interface with user file management
-- 🛡️ **ACL Security**: Prevents inference attacks with proper access control
-- 🎯 **Homomorphic Operations**: Real encrypted computations on file sizes
+### Win Conditions
+- Rock > Scissors
+- Scissors > Paper  
+- Paper > Rock
+- Same choice = Tie
 
-## Project Structure
+## 🔐 FHE Advantages
+
+### Privacy
+- **Encrypted choices** before submission
+- **Homomorphic compute** on-chain
+- **Anti-cheat**: no leakage during the game
+- **Decentralized**: on-chain verifiable
+
+### Implementation
+- Zama FHEVM primitives
+- Comparisons under encryption
+- Verifiable results, private choices
+- Fully decentralized privacy
+
+## 📁 Project Structure
 
 ```
-cloudfhe-app/
+fhe-rock-paper-scissors/
 ├── contracts/
-│   └── CloudFHE.sol          # Smart contract for storing encrypted files
+│   └── RockPaperScissors.sol      # Smart contract
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx           # Main React application
-│   │   ├── fheClient.js      # Zama FHE SDK wrapper
-│   │   ├── index.js          # React entry point
-│   │   └── index.css         # Tailwind CSS styles
-│   ├── package.json          # Frontend dependencies
-│   └── env.example           # Environment variables template
+│   │   ├── App.jsx               # Main UI
+│   │   ├── fheClient.js          # FHEVM client
+│   │   ├── RockPaperScissors.json # ABI
+│   │   └── index.js              # React entry
+│   └── package.json             # Frontend deps
 ├── scripts/
-│   └── deploy.js             # Hardhat deployment script
-├── hardhat.config.js         # Hardhat configuration
-└── package.json              # Project dependencies
+│   └── deploy.js                 # Deploy script
+├── hardhat.config.js            # Hardhat config
+└── package.json                 # Project deps
 ```
 
-## Quick Setup
+## 🚀 Quick Start
 
-### For Sepolia Testnet Deployment
+### Prerequisites
+- Node.js 16+
+- MetaMask extension
+- Sepolia test ETH
 
-1. **Install Dependencies**
-   ```bash
-   npm install
-   npm run frontend:install
-   ```
-
-2. **Configure Environment**
-   ```bash
-   cp env.example .env
-   # Edit .env with your Sepolia configuration:
-   # - PRIVATE_KEY: Your wallet private key
-   # - SEPOLIA_URL: Infura/Alchemy RPC URL
-   # - ETHERSCAN_API_KEY: For contract verification
-   ```
-
-3. **Deploy to Sepolia**
-   ```bash
-   npm run compile
-   npm run deploy:sepolia
-   # Copy the deployed contract address
-   ```
-
-4. **Update Frontend Configuration**
-   ```bash
-   # Set contract address in frontend/.env
-   REACT_APP_CLOUDFHE_ADDR=0xYourContractAddress
-   ```
-
-5. **Deploy to Vercel**
-   ```bash
-   vercel --prod
-   ```
-
-### For Local Development
-
-1. **Install Dependencies**
-   ```bash
-   npm install
-   npm run frontend:install
-   ```
-
-### 2. Configure Environment Variables
-
-Create a `.env` file in the root directory:
+### 1. Install deps
 
 ```bash
-# Your private key for deployment (keep this secure!)
+# Clone
+git clone <repository-url>
+cd fhe-rock-paper-scissors
+
+# Root deps
+npm install
+
+# Frontend deps
+cd frontend
+npm install
+```
+
+### 2. Configure env
+
+创建根目录 `.env` 文件：
+
+```bash
+# Private key (for deploy)
 PRIVATE_KEY=your_private_key_here
 
-# Sepolia RPC URL (get from Infura, Alchemy, etc.)
+# Sepolia RPC URL
 SEPOLIA_URL=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
 
-# Etherscan API key for contract verification
+# Etherscan API key
 ETHERSCAN_API_KEY=your_etherscan_api_key
 ```
 
-Create a `.env` file in the `frontend/` directory:
+创建 `frontend/.env` 文件：
 
 ```bash
-# Your deployed contract address (set after deployment)
-REACT_APP_CLOUDFHE_ADDR=0xYourContractAddressHere
+# Contract address
+REACT_APP_CONTRACT_ADDR=0xYourContractAddress
 
-# Optional: Relayer configuration
-REACT_APP_RELAYER_URL=https://your-relayer-url.com
-REACT_APP_RELAYER_API_KEY=your-api-key
+# FHEVM (optional)
+REACT_APP_FHEVM_PROJECT_ID=your_project_id
+REACT_APP_FHEVM_API_KEY=your_api_key
 ```
 
-### 3. Deploy Smart Contract
+### 3. Deploy contracts
 
 ```bash
-# Compile contracts
+# Compile
 npm run compile
 
-# Deploy to Sepolia testnet
+# Deploy to Sepolia
 npm run deploy:sepolia
 ```
 
-After deployment, copy the contract address and update your frontend `.env` file.
-
-### 4. Start the Frontend
+### 4. Start frontend
 
 ```bash
+# Start dev server
 npm run frontend:start
 ```
 
-The app will open at `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-## Usage
+## 🎮 How to Play
 
-1. **Connect MetaMask**: Ensure MetaMask is connected to Sepolia testnet
-2. **Upload File**: Select a file (max 100KB) and click "Upload (Encrypt)"
-3. **Download Files**: Use either:
-   - **Personal Decrypt**: Requires EIP-712 signature with your private key
-   - **Public Decrypt**: No signature required (public decryption)
+### 1. Connect wallet
+- Switch MetaMask to Sepolia
+- Ensure enough SepoliaETH
+- Get from [Sepolia Faucet](https://sepoliafaucet.com)
 
-## Security Notes
+### 2. Start game
+- Choose move (Rock/Scissors/Paper)
+- Set bet (0.001 - 1 ETH)
+- Create or join
 
-⚠️ **Important Security Considerations:**
+### 3. Wait for result
+- Auto computed result
+- Winner gets double
+- See your stats
 
-- This is a **demo scaffold** for development on Sepolia testnet
-- **Never use real private keys** in production without proper security measures
-- Store large files off-chain (IPFS/Arweave) and only store pointers on-chain
-- Verify relayer endpoints and API keys before production use
-- Review and audit all code before mainnet deployment
+## 🔧 Development
 
-## Dependencies
+### Contracts
 
-### Smart Contract
-- `@fhevm/solidity`: Zama FHE Solidity library
-- `hardhat`: Ethereum development framework
+#### Core functions
+- `createGame()`: create and submit encrypted choice
+- `joinGame()`: join game
+- `_calculateGameResult()`: compute results under FHE
+- `getGame()`: get game info
+- `getPlayerStats()`: get player stats
+
+#### Events
+- `GameCreated`
+- `PlayerJoined`
+- `GameFinished`
+- `ChoiceRevealed`
 
 ### Frontend
-- `react`: Frontend framework
-- `ethers`: Ethereum JavaScript library
-- `@zama-fhe/relayer-sdk`: Zama FHE relayer SDK
-- `tailwindcss`: CSS framework
 
-## Development Tips
+#### Main components
+- Wallet connection
+- Move selection
+- Active games list
+- Player stats
+- Global stats
 
-### Using with Cursor IDE
+#### FHE integration
+- Create encrypted input
+- Decryption request
+- Result compute
+- Privacy verification
 
-1. Open the project in Cursor
-2. Use `@docs` to load Zama documentation for inline guidance
-3. Create a `.cursorrules` file for consistent code generation:
+## 🛡️ Security
+
+### Privacy
+- FHE-protected choices
+- Prevent leakage and cheating
+- Decentralized privacy
+
+### Contract security
+- Access control
+- State checks
+- Prize distribution
+- Reentrancy-safe
+
+### Frontend security
+- Input validation
+- Secure wallet connect
+- Error handling
+
+## 📊 Statistics
+
+### Player stats
+- Total games
+- Wins
+- Losses
+- Ties
+- Total winnings
+
+### Global stats
+- Total platform games
+- Total volume
+- Active players
+
+## 🔍 Troubleshooting
+
+### FAQ
+
+1. **MetaMask connect fails**
+   - Ensure Sepolia network
+   - Check RPC settings
+
+2. **Contract not found**
+   - Verify address
+   - Ensure deployed
+
+3. **Insufficient gas**
+   - Get more SepoliaETH
+   - Check balance
+
+4. **FHEVM not available**
+   - Demo still works
+   - Configure FHEVM project for full features
+
+### Help
+
+- See [Zama Docs](https://docs.zama.ai/)
+- Check FHEVM SDK docs
+- Ensure deps installed
+
+## 🧪 Testing
+
+### Run tests
+
+```bash
+# Contract tests
+npm run test
+
+# Coverage
+npm run coverage
+
+# Frontend tests
+cd frontend && npm test
+```
+
+### Local network
+
+```bash
+# Start local Hardhat
+npx hardhat node
+
+# Deploy to local
+npm run deploy:localhost
+```
+
+## 📝 Notes
+
+### Using Cursor IDE
+
+1. Open project in Cursor
+2. Use `@docs` to load Zama docs
+3. Create `.cursorrules`:
 
 ```bash
 # .cursorrules
-- Use TypeScript for better type safety
-- Follow React best practices
-- Implement proper error handling
-- Add comprehensive comments for FHE operations
-- Ensure all blockchain interactions are properly typed
+- Use TypeScript for safety
+- React best practices
+- Proper error handling
+- Document FHE operations
+- Strongly typed blockchain I/O
 ```
 
-### Testing
+### Code style
 
-```bash
-# Run frontend tests
-cd frontend && npm test
+- ESLint + Prettier
+- Solidity best practices
+- Error handling
+- Documentation
 
-# Run contract tests (if added)
-npx hardhat test
-```
+## 📄 License
 
-## Troubleshooting
+MIT License - see LICENSE.
 
-### Common Issues
+## ⚠️ Disclaimer
 
-1. **MetaMask Connection**: Ensure you're on Sepolia testnet
-2. **Contract Not Found**: Verify contract address in `.env`
-3. **Relayer Errors**: Check relayer endpoint configuration
-4. **File Size**: Remember 100KB limit for on-chain storage
+This is a demo. Use at your own risk; secure before production.
 
-### Getting Help
+## 🤝 Contributing
 
-- Check Zama documentation: https://docs.zama.ai/
-- Review the official relayer SDK documentation
-- Ensure all dependencies are properly installed
+Welcome issues and PRs!
 
-## License
+### Contribution guide
 
-MIT License - see LICENSE file for details.
+1. Fork
+2. Feature branch
+3. Commit
+4. Push
+5. Open PR
 
-## Disclaimer
+## 📞 Contact
 
-This is a demonstration project. Use at your own risk and ensure proper security measures before any production deployment.
+- Repo: [GitHub Repository]
+- Issues: [GitHub Issues]
+- Discussions: [GitHub Discussions]
+
+---
+
+**Enjoy private Rock Paper Scissors!** 🪨✂️📄
+
+*FHE makes gaming fair, transparent and private!*

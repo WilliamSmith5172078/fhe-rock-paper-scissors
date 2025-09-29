@@ -1,43 +1,53 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import { 
-  uploadFile,
   getContract,
-  retrieveFile,
-  requestUserDecrypt, 
-  requestPublicDecrypt
+  getGameStats
 } from './fheClient';
 import { ethers } from 'ethers';
 
 export default function App() {
-  const [file, setFile] = useState(null);
-  const [status, setStatus] = useState('idle');
-  const [storedId, setStoredId] = useState(null);
-  const [decryptedBlob, setDecryptedBlob] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [userAddress, setUserAddress] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
-  const [userFiles, setUserFiles] = useState([]);
-  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [currentGame, setCurrentGame] = useState(null);
+  const [activeGames, setActiveGames] = useState([]);
+  const [playerChoice, setPlayerChoice] = useState(null);
+  const [gameStatus, setGameStatus] = useState('idle');
+  const [betAmount, setBetAmount] = useState('0.01');
+  const [gameHistory, setGameHistory] = useState([]);
+  const [playerStats, setPlayerStats] = useState({
+    totalGames: 0,
+    wins: 0,
+    losses: 0,
+    ties: 0,
+    totalWinnings: 0
+  });
+  const [globalStats, setGlobalStats] = useState({
+    totalGames: 0,
+    totalVolume: 0
+  });
 
-  // Contract configuration with safety checks
-  const CONTRACT_ADDRESS = process.env.REACT_APP_CLOUDFHE_ADDR || '0x915747D9454B610de0aB22Faf1C61Fe2fF0d212a';
-  const CHAIN_ID = 11155111; // Sepolia testnet
-  const RELAYER_URL = process.env.REACT_APP_RELAYER_URL || 'https://relayer.fhevm.org';
-  
-  // Security validation
-  const isContractAddressValid = (addr) => {
-    return addr && 
-           addr !== '0xYourContractAddressHere' && 
-           addr !== '0xYourSepoliaContractAddress' && 
-           addr.length === 42 && 
-           addr.startsWith('0x');
+  // Choice constants
+  const CHOICES = {
+    0: { name: 'Rock', emoji: '🪨', color: 'bg-gray-500' },
+    1: { name: 'Scissors', emoji: '✂️', color: 'bg-gray-400' },
+    2: { name: 'Paper', emoji: '📄', color: 'bg-yellow-100' }
   };
 
-  // Connect to MetaMask with safety checks
+  // Contract config (hardcoded)
+  // TODO: replace the address below with your freshly deployed contract address
+  const CONTRACT_ADDRESS = '0xcfbF68979D69296071Fceb21b9Ff076825Efa602';
+  const CHAIN_ID = 11155111; // Sepolia testnet
+
+  // Validators
+  function isValidAddress(addr) {
+    return typeof addr === 'string' && addr.startsWith('0x') && addr.length === 42 && addr !== '0xYourContractAddress';
+  }
+
+  // Connect wallet
   async function connectWallet() {
     try {
       if (!window.ethereum) {
-        alert('MetaMask not detected. Please install MetaMask to use this app.');
+        alert('Please install MetaMask');
         return;
       }
 
@@ -46,17 +56,15 @@ export default function App() {
       const signer = provider.getSigner();
       const address = await signer.getAddress();
       
-      // Verify we're on the correct network (Sepolia)
+      // Verify network
       const network = await provider.getNetwork();
       if (network.chainId !== CHAIN_ID) {
-        // Try to switch to Sepolia
         try {
           await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }], // 11155111 in hex
+            params: [{ chainId: '0xaa36a7' }],
           });
         } catch (switchError) {
-          // If Sepolia is not added, add it
           if (switchError.code === 4902) {
             await window.ethereum.request({
               method: 'wallet_addEthereumChain',
@@ -72,455 +80,460 @@ export default function App() {
                 blockExplorerUrls: ['https://sepolia.etherscan.io/']
               }]
             });
-          } else {
-            alert('Please manually switch to Sepolia testnet in MetaMask');
-            return;
           }
         }
       }
 
       setUserAddress(address);
       setIsConnected(true);
-      setStatus('connected');
+      setGameStatus('connected');
       
-      // Load user files after connecting
-      await loadUserFiles();
+      // Load data
+      await loadPlayerStats();
+      await loadActiveGames();
+      await loadGlobalStats();
     } catch (error) {
-      console.error('Connection failed:', error);
-      alert('Failed to connect to MetaMask. Please try again.');
+      console.error('Connect failed:', error);
+      alert('Failed to connect wallet, please retry');
     }
   }
 
-  // Load user files from contract
-  async function loadUserFiles() {
-    if (!isConnected || !userAddress) return;
+  // Load player stats
+  async function loadPlayerStats() {
+    if (!isConnected) return;
     
     try {
-      setLoadingFiles(true);
       const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const abi = [
-        'function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)',
-        'function nextId() external view returns (uint256)'
-      ];
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
+      const contract = await getContract(provider, CONTRACT_ADDRESS);
       
-      // Get the total number of files
-      const totalFiles = await contract.nextId();
+      const stats = await contract.getPlayerStats(userAddress);
+      setPlayerStats({
+        totalGames: stats.totalGames.toNumber(),
+        wins: stats.wins.toNumber(),
+        losses: stats.losses.toNumber(),
+        ties: stats.ties.toNumber(),
+        totalWinnings: parseFloat(ethers.utils.formatEther(stats.totalWinnings))
+      });
+    } catch (error) {
+      console.error('Load player stats failed:', error);
+    }
+  }
+
+  // Load global stats
+  async function loadGlobalStats() {
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const contract = await getContract(provider, CONTRACT_ADDRESS);
       
-      // Check each file ID to see if it belongs to the user
-      const userFilesList = [];
-      for (let i = 1; i < totalFiles.toNumber(); i++) {
-        try {
-          const fileData = await contract.files(i);
-          if (fileData.exists && fileData.owner.toLowerCase() === userAddress.toLowerCase()) {
-            userFilesList.push({
-              id: i,
-              owner: fileData.owner,
-              fileHash: fileData.fileHash,
-              sizeHandle: fileData.sizeHandle,
-              // For demo purposes, we'll estimate size from the hash
-              size: 1024 // Placeholder size
-            });
-          }
-        } catch (error) {
-          // File doesn't exist or other error, continue
-          continue;
-        }
+      const [totalGames, totalVolume] = await contract.getGameStats();
+      setGlobalStats({
+        totalGames: totalGames.toNumber(),
+        totalVolume: parseFloat(ethers.utils.formatEther(totalVolume))
+      });
+    } catch (error) {
+      console.error('Load global stats failed:', error);
+    }
+  }
+
+  // Load active games
+  async function loadActiveGames() {
+    if (!isConnected) return;
+    
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const contract = await getContract(provider, CONTRACT_ADDRESS);
+      
+      const gameIds = await contract.getActiveGames();
+      const games = [];
+      
+      for (const gameId of gameIds) {
+        const gameData = await contract.getGame(gameId);
+        games.push({
+          id: gameId,
+          player1: gameData.player1,
+          betAmount: ethers.utils.formatEther(gameData.betAmount),
+          createdAt: new Date(gameData.createdAt * 1000)
+        });
       }
       
-      setUserFiles(userFilesList);
-      setLoadingFiles(false);
+      setActiveGames(games);
     } catch (error) {
-      console.error('Failed to load user files:', error);
-      setLoadingFiles(false);
+      console.error('Load games failed:', error);
     }
   }
 
-  async function onFileChange(e) {
-    const f = e.target.files[0];
-    if (!f) return;
-    
-    // Security checks
-    if (f.size > 100 * 1024) {
-      alert('File exceeds 100KB limit');
+  // Create game
+  async function createGame() {
+    if (!isConnected || !playerChoice) {
+      alert('Connect wallet and choose your move');
       return;
     }
-    
-    // Check file type for security
-    const allowedTypes = ['text/plain', 'application/pdf', 'image/jpeg', 'image/png', 'application/octet-stream'];
-    if (!allowedTypes.includes(f.type)) {
-      alert('File type not allowed for security reasons');
-      return;
-    }
-    
-    setFile(f);
-  }
 
-  async function onUpload() {
-    // Security checks
-    if (!isConnected) {
-      alert('Please connect your wallet first');
+    if (!isValidAddress(CONTRACT_ADDRESS)) {
+      alert('Invalid contract address. Set REACT_APP_CONTRACT_ADDR in frontend/.env');
       return;
     }
-    
-    if (!isContractAddressValid(CONTRACT_ADDRESS)) {
-      alert('Invalid contract address. Please check your configuration.');
-      return;
-    }
-    
-    if (!file) return alert('Please select a file');
-    
+
     try {
-      setStatus('uploading');
-      console.log('📁 Starting file upload:', file.name, file.size, 'bytes');
-      
-      // Get contract and user address
+      setGameStatus('creating');
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const userAddress = await signer.getAddress();
+      const contract = await getContract(signer, CONTRACT_ADDRESS);
+
+      const betAmountWei = ethers.utils.parseEther(betAmount);
+      // Always use DEV mock methods (no relayer/backend)
+      // Preflight static call to surface revert reasons early
+      try {
+        await contract.callStatic.createGameMock(playerChoice, { value: betAmountWei });
+      } catch (e) {
+        console.error('Preflight revert (createGameMock):', e);
+        throw new Error('Preflight failed: createGameMock reverted. Ensure the deployed contract includes createGameMock and bet >= MIN_BET');
+      }
+      const gasEstimate = await contract.estimateGas.createGameMock(playerChoice, { value: betAmountWei }).catch(() => null);
+      const tx = await contract.createGameMock(
+        playerChoice,
+        {
+          value: betAmountWei,
+          ...(gasEstimate ? { gasLimit: gasEstimate.mul(12).div(10) } : { gasLimit: 300000 })
+        }
+      );
+
+      await tx.wait();
+      setGameStatus('game_created');
+      alert('Game created! Waiting for another player...');
       
-      // Get contract instance
+      // Refresh
+      await loadActiveGames();
+      await loadPlayerStats();
+    } catch (error) {
+      console.error('Create game failed:', error);
+      alert('Create game failed: ' + error.message);
+      setGameStatus('error');
+    }
+  }
+
+  // Join game
+  async function joinGame(gameId) {
+    if (!isConnected || !playerChoice) {
+      alert('Connect wallet and choose your move');
+      return;
+    }
+
+    if (!isValidAddress(CONTRACT_ADDRESS)) {
+      alert('Invalid contract address. Set REACT_APP_CONTRACT_ADDR in frontend/.env');
+      return;
+    }
+
+    try {
+      setGameStatus('joining');
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
       const contract = await getContract(signer, CONTRACT_ADDRESS);
       
-      // Use the new uploadFile function that handles the complete FHEVM flow
-      const receipt = await uploadFile(file, contract, userAddress);
-      
-      // Parse event from receipt (FileUploaded)
-      const event = receipt.events?.find(ev => ev.event === 'FileUploaded');
-      let id = null;
-      if (event && event.args) id = event.args[0].toNumber();
-
-      setStoredId(id);
-      setStatus('uploaded');
-      alert(`File uploaded successfully! ID: ${id}`);
-      
-      // Refresh user files list
-      await loadUserFiles();
-    } catch (error) {
-      console.error('Upload failed:', error);
-      setStatus('error');
-      
-      // Provide more specific error messages
-      let errorMessage = 'Upload failed. ';
-      if (error.message.includes('insufficient funds')) {
-        errorMessage += 'Insufficient SepoliaETH for gas fees. Get test ETH from https://sepoliafaucet.com';
-      } else if (error.message.includes('gas limit')) {
-        errorMessage += 'Gas limit exceeded. Try uploading a smaller file or increase gas limit in MetaMask.';
-      } else if (error.message.includes('out of gas')) {
-        errorMessage += 'Transaction ran out of gas. Try increasing gas limit in MetaMask.';
-      } else if (error.message.includes('user rejected')) {
-        errorMessage += 'Transaction was rejected by user.';
-      } else if (error.message.includes('network')) {
-        errorMessage += 'Network error. Please check your connection and try again.';
-      } else if (error.message.includes('revert')) {
-        errorMessage += 'Transaction reverted. Check contract state and try again.';
-      } else {
-        errorMessage += `Error: ${error.message}`;
+      const betAmountWei = ethers.utils.parseEther(betAmount);
+      // Always use DEV mock methods (no relayer/backend)
+      try {
+        await contract.callStatic.joinGameMock(gameId, playerChoice, { value: betAmountWei });
+      } catch (e) {
+        console.error('Preflight revert (joinGameMock):', e);
+        throw new Error('Preflight failed: joinGameMock reverted. Check game exists, not creator, and bet matches');
       }
+      const gasEstimate = await contract.estimateGas.joinGameMock(gameId, playerChoice, { value: betAmountWei }).catch(() => null);
+      const tx = await contract.joinGameMock(
+        gameId,
+        playerChoice,
+        {
+          value: betAmountWei,
+          ...(gasEstimate ? { gasLimit: gasEstimate.mul(12).div(10) } : { gasLimit: 300000 })
+        }
+      );
+
+      await tx.wait();
+      setGameStatus('game_joined');
+      alert('Joined game! Result is being computed...');
       
-      alert(errorMessage);
-    }
-  }
-
-  async function onDownloadPersonal() {
-    if (!storedId) return alert('no stored id');
-    setStatus('fetchingFileData');
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const abi = ['function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)'];
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
-    const fileData = await contract.files(storedId);
-
-    if (!fileData.exists) {
-      alert('File not found');
-      return;
-    }
-
-    setStatus('requestingUserDecrypt');
-    // For demo purposes, we'll simulate decryption using the file hash
-    // In production, you would use the fileHash to retrieve from IPFS and then decrypt
-    const simulatedCiphertext = ethers.utils.arrayify(fileData.fileHash);
-    const plaintext = await requestUserDecrypt(CHAIN_ID, CONTRACT_ADDRESS, simulatedCiphertext);
-
-    // plaintext is binary; convert to blob and URL
-    const blob = new Blob([new Uint8Array(plaintext)], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    setDecryptedBlob({ url, blob });
-    setStatus('done');
-  }
-
-  async function onDownloadPublic() {
-    if (!storedId) return alert('no stored id');
-    setStatus('fetchingFileData');
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const abi = ['function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)'];
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
-    const fileData = await contract.files(storedId);
-
-    if (!fileData.exists) {
-      alert('File not found');
-      return;
-    }
-
-    setStatus('requestingPublicDecrypt');
-    // Retrieve file from IPFS using the stored hash
-    const ipfsHash = fileData.fileHash;
-    const fileContent = await retrieveFile(ipfsHash);
-    
-    // Request public decryption
-    const plaintext = await requestPublicDecrypt(fileContent);
-
-    const blob = new Blob([new Uint8Array(plaintext)], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    setDecryptedBlob({ url, blob });
-    setStatus('done');
-  }
-
-  // Download file by ID
-  async function downloadFile(fileId) {
-    try {
-      setStatus('fetchingFileData');
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const abi = ['function files(uint256 id) external view returns (address owner, bytes32 fileHash, bytes32 sizeHandle, bool exists)'];
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
-      const fileData = await contract.files(fileId);
-
-      if (!fileData.exists) {
-        alert('File not found');
-        return;
-      }
-
-      setStatus('requestingUserDecrypt');
-      // For demo purposes, we'll simulate decryption using the file hash
-      const simulatedCiphertext = ethers.utils.arrayify(fileData.fileHash);
-      const plaintext = await requestUserDecrypt(CHAIN_ID, CONTRACT_ADDRESS, simulatedCiphertext);
-
-      const blob = new Blob([new Uint8Array(plaintext)], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `file_${fileId}.bin`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      setStatus('done');
+      // Refresh
+      await loadActiveGames();
+      await loadPlayerStats();
+      await loadGlobalStats();
     } catch (error) {
-      console.error('Download failed:', error);
-      alert('Download failed. Please check the console for details.');
+      console.error('Join game failed:', error);
+      alert('Join game failed: ' + error.message);
+      setGameStatus('error');
     }
   }
 
-  // Test FHEVM Relayer connection
-  async function testRelayerConnection() {
-    try {
-      setStatus('testing_relayer');
-      const { initFHESDK } = await import('./fheClient');
-      const fheSDK = await initFHESDK();
-      
-      if (fheSDK) {
-        alert('✅ FHEVM Relayer connection successful!');
-        setStatus('relayer_connected');
-      } else {
-        alert('⚠️ FHEVM Relayer not available, using simulation mode');
-        setStatus('simulation_mode');
-      }
-    } catch (error) {
-      console.error('Relayer test failed:', error);
-      alert('❌ FHEVM Relayer connection failed. Using simulation mode.');
-      setStatus('simulation_mode');
-    }
+  // Select choice
+  function selectChoice(choice) {
+    setPlayerChoice(choice);
   }
-
-  // Note: Delete functionality removed as the new contract doesn't support file deletion
-  // Files are stored permanently on the blockchain for security and immutability
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">CloudFHE — Secure Demo</h1>
-      
-      {/* Security Warning */}
-      <div className="mb-6 p-4 bg-yellow-100 border border-yellow-400 rounded-lg">
-        <h3 className="font-bold text-yellow-800 mb-2">⚠️ Sepolia Testnet</h3>
-        <p className="text-yellow-700 text-sm">
-          This app is configured for Sepolia testnet. You need SepoliaETH for gas fees.
-          Get test ETH from <a href="https://sepoliafaucet.com" target="_blank" rel="noopener noreferrer" className="underline">Sepolia Faucet</a>.
-          This is for testing purposes only.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            🪨✂️📄 FHE Rock Paper Scissors
+          </h1>
+          <p className="text-xl text-gray-600 mb-6">
+            Protect your move privacy with FHE
+          </p>
+        </div>
 
-      {/* Connection Status */}
-      <div className="mb-4 p-4 bg-gray-100 rounded-lg">
-        <h3 className="font-bold mb-2">Wallet Connection</h3>
-        {isConnected ? (
-          <div className="text-green-600">
-            ✅ Connected: {userAddress}
+        {/* Notice */}
+        <div className="mb-8 p-6 bg-yellow-100 border-l-4 border-yellow-500 rounded-lg">
+          <div className="flex items-center">
+            <div className="text-yellow-500 mr-3">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-bold text-yellow-800">⚠️ Sepolia Testnet</h3>
+              <p className="text-yellow-700 text-sm">
+                This game runs on Sepolia testnet. You need SepoliaETH for gas. Get test ETH from <a href="https://sepoliafaucet.com" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Sepolia Faucet</a>. Your choice is protected by FHE.
+              </p>
+            </div>
           </div>
-        ) : (
-          <div>
+        </div>
+
+        {/* Wallet */}
+        <div className="mb-8 p-6 bg-white rounded-xl shadow-lg">
+          <h3 className="text-xl font-bold mb-4 flex items-center">
+            <span className="mr-2">🔗</span>
+            Wallet
+          </h3>
+          {isConnected ? (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span className="text-green-600 font-semibold">Connected: {userAddress}</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-blue-600 font-semibold">Total games</div>
+                  <div className="text-2xl font-bold">{playerStats.totalGames}</div>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <div className="text-green-600 font-semibold">Wins</div>
+                  <div className="text-2xl font-bold">{playerStats.wins}</div>
+                </div>
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <div className="text-red-600 font-semibold">Losses</div>
+                  <div className="text-2xl font-bold">{playerStats.losses}</div>
+                </div>
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <div className="text-yellow-600 font-semibold">Winnings</div>
+                  <div className="text-2xl font-bold">{playerStats.totalWinnings.toFixed(4)} ETH</div>
+                </div>
+              </div>
+            </div>
+          ) : (
             <button 
               onClick={connectWallet}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
             >
               Connect MetaMask
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* Contract Info */}
-      <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-bold mb-2">Contract Information</h3>
-        <p className="text-sm text-gray-600">
-          Address: {CONTRACT_ADDRESS}
-        </p>
-        <p className="text-sm text-gray-600">
-          Network: Sepolia Testnet (Chain ID: {CHAIN_ID})
-        </p>
-        <p className="text-sm text-gray-600">
-          Relayer: {RELAYER_URL}
-        </p>
-        <button 
-          onClick={testRelayerConnection}
-          className="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-        >
-          Test FHEVM Relayer
-        </button>
-      </div>
-
-      {/* File Operations */}
-      <div className="mb-4">
-        <h3 className="font-bold mb-2">File Operations</h3>
-        <input 
-          type="file" 
-          onChange={onFileChange}
-          className="mb-2 p-2 border rounded"
-          disabled={!isConnected}
-        />
-        
-        {/* File Visibility Toggle */}
-        <div className="mb-2">
-          <label className="flex items-center space-x-2">
-            <input 
-              type="checkbox" 
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-              className="rounded"
-              disabled={!isConnected}
-            />
-            <span className="text-sm">Make file public (encrypted boolean)</span>
-          </label>
-        </div>
-        
-        <div className="mt-2 space-x-2">
-          <button 
-            onClick={onUpload} 
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
-            disabled={!isConnected || !file}
-          >
-            Upload (Encrypt)
-          </button>
-          <button 
-            onClick={onDownloadPersonal} 
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
-            disabled={!isConnected || !storedId}
-          >
-            Download (Personal Decrypt)
-          </button>
-          <button 
-            onClick={onDownloadPublic} 
-            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:bg-gray-400"
-            disabled={!isConnected || !storedId}
-          >
-            Download (Public Decrypt)
-          </button>
-        </div>
-      </div>
-
-      {/* User Files */}
-      {isConnected && (
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-bold">Your Files</h3>
-            <button 
-              onClick={loadUserFiles}
-              className="text-sm bg-gray-200 px-2 py-1 rounded hover:bg-gray-300"
-              disabled={loadingFiles}
-            >
-              {loadingFiles ? 'Loading...' : 'Refresh'}
-            </button>
-          </div>
-          
-          {loadingFiles ? (
-            <p className="text-gray-500">Loading your files...</p>
-          ) : userFiles.length === 0 ? (
-            <p className="text-gray-500">No files uploaded yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {userFiles.map((file) => (
-                <div key={file.id} className="border rounded p-3 bg-white">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold">File ID: {file.id}</p>
-                      <p className="text-sm text-gray-600">
-                        Size: {(file.size / 1024).toFixed(2)} KB (estimated)
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        File Hash: {file.fileHash}
-                      </p>
-                    </div>
-                    <div className="space-x-2">
-                      <button 
-                        onClick={() => downloadFile(file.id)}
-                        className="text-sm bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                      >
-                        Download
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
         </div>
-      )}
 
-      {/* Status */}
-      <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-bold mb-2">Status</h3>
-        <p>Current Status: <span className="font-mono">{status}</span></p>
-        <p>Stored File ID: <span className="font-mono">{storedId ?? '-'}</span></p>
-      </div>
+        {isConnected && (
+          <>
+            {/* Game settings */}
+            <div className="mb-8 p-6 bg-white rounded-xl shadow-lg">
+              <h3 className="text-xl font-bold mb-6 flex items-center">
+                <span className="mr-2">🎮</span>
+                Game settings
+              </h3>
+              
+              {/* Select move */}
+              <div className="mb-6">
+                <label className="block text-lg font-semibold mb-4">Choose your move:</label>
+                <div className="flex justify-center space-x-6">
+                  {Object.entries(CHOICES).map(([value, choice]) => (
+                    <button
+                      key={value}
+                      onClick={() => selectChoice(parseInt(value))}
+                      className={`p-6 rounded-2xl border-4 transition-all duration-200 transform hover:scale-105 ${
+                        playerChoice === parseInt(value) 
+                          ? 'border-blue-500 bg-blue-100 shadow-lg' 
+                          : 'border-gray-300 hover:border-gray-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="text-6xl mb-2">{choice.emoji}</div>
+                      <div className="text-lg font-semibold">{choice.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-      {decryptedBlob && (
-        <div className="mt-4 p-4 bg-green-50 rounded-lg">
-          <h3 className="font-bold mb-2">Download Ready</h3>
-          <a 
-            href={decryptedBlob.url} 
-            download={file?.name || 'download.bin'} 
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            Save decrypted file
-          </a>
-        </div>
-      )}
+              {/* Bet amount */}
+              <div className="mb-6">
+                <label className="block text-lg font-semibold mb-2">Bet amount (ETH):</label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="number"
+                    value={betAmount}
+                    onChange={(e) => setBetAmount(e.target.value)}
+                    min="0.001"
+                    step="0.001"
+                    className="border-2 border-gray-300 rounded-lg px-4 py-2 text-lg focus:border-blue-500 focus:outline-none"
+                    placeholder="0.01"
+                  />
+                  <span className="text-gray-600">ETH</span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">Min: 0.001 ETH, Max: 1 ETH</p>
+              </div>
 
-      {/* Technical Notes */}
-      <div className="mt-6 p-4 bg-gray-100 rounded-lg text-sm text-gray-600">
-        <h3 className="font-bold mb-2">FHE Technical Features</h3>
-        <ul className="list-disc list-inside space-y-1">
-          <li>✅ Real Zama FHEVM Relayer integration with CDN</li>
-          <li>✅ Encrypted file size tracking (euint32 handles)</li>
-          <li>✅ External handle integration with attestation verification</li>
-          <li>✅ Homomorphic operations through Gateway</li>
-          <li>✅ Public decryption requests via FHEVM relayer</li>
-          <li>✅ FHE.allow and FHE.isSenderAllowed for access control</li>
-          <li>✅ Gateway integration for off-chain FHE computations</li>
-          <li>✅ Real-time relayer connection testing</li>
-          <li>✅ Fallback to simulation mode if relayer unavailable</li>
-          <li>⚠️ Files stored as IPFS hashes (off-chain storage)</li>
-          <li>⚠️ Requires active FHEVM relayer for full functionality</li>
-        </ul>
+              {/* Actions */}
+              <div className="flex flex-wrap gap-4">
+                <button
+                  onClick={createGame}
+                  disabled={!playerChoice}
+                  className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-700 hover:to-green-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+                >
+                  Create game
+                </button>
+                <button
+                  onClick={loadActiveGames}
+                  className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-8 py-3 rounded-lg font-semibold hover:from-gray-700 hover:to-gray-800 transition-all duration-200 shadow-lg"
+                >
+                  Refresh games
+                </button>
+              </div>
+            </div>
+
+            {/* Active games */}
+            <div className="mb-8 p-6 bg-white rounded-xl shadow-lg">
+              <h3 className="text-xl font-bold mb-6 flex items-center">
+                <span className="mr-2">🎯</span>
+                Joinable games
+              </h3>
+              {activeGames.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">🎮</div>
+                  <p className="text-gray-500 text-lg">No active games</p>
+                  <p className="text-gray-400 text-sm">Create one or wait for others</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {activeGames.map((game) => (
+                    <div key={game.id} className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-all duration-200">
+                      <div className="flex justify-between items-center">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-4">
+                            <span className="text-2xl font-bold text-blue-600">#{game.id}</span>
+                            <span className="text-lg font-semibold">Room</span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                            <div>
+                              <span className="font-semibold">Creator:</span> {game.player1.slice(0, 6)}...{game.player1.slice(-4)}
+                            </div>
+                            <div>
+                              <span className="font-semibold">Bet:</span> {game.betAmount} ETH
+                            </div>
+                            <div>
+                              <span className="font-semibold">Created:</span> {game.createdAt.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => joinGame(game.id)}
+                          disabled={!playerChoice}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+                        >
+                          Join
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Global stats */}
+            <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-lg">
+              <h3 className="text-xl font-bold mb-6 flex items-center">
+                <span className="mr-2">📊</span>
+                Game statistics
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600">{globalStats.totalGames}</div>
+                  <div className="text-gray-600">Total games</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600">{globalStats.totalVolume.toFixed(4)}</div>
+                  <div className="text-gray-600">Total volume (ETH)</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Current status */}
+            <div className="mb-8 p-6 bg-white rounded-xl shadow-lg">
+              <h3 className="text-xl font-bold mb-4 flex items-center">
+                <span className="mr-2">⚡</span>
+                Game status
+              </h3>
+              <div className="space-y-2">
+                <p className="text-lg">
+                  <span className="font-semibold">Status:</span> 
+                  <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-mono">
+                    {gameStatus}
+                  </span>
+                </p>
+                {playerChoice !== null && (
+                  <p className="text-lg">
+                    <span className="font-semibold">Your choice:</span> 
+                    <span className="ml-2 text-2xl">
+                      {CHOICES[playerChoice].emoji} {CHOICES[playerChoice].name}
+                    </span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* FHE notes */}
+            <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl shadow-lg">
+              <h3 className="text-xl font-bold mb-4 flex items-center">
+                <span className="mr-2">🔐</span>
+                FHE privacy
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-500">✅</span>
+                    <span>Use Zama FHEVM to protect choices</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-500">✅</span>
+                    <span>Compute results under encryption</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-500">✅</span>
+                    <span>Decrypt only after game ends</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-500">✅</span>
+                    <span>Prevent cheating and leakage</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-500">✅</span>
+                    <span>Decentralized privacy</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-500">✅</span>
+                    <span>Transparent and verifiable results</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

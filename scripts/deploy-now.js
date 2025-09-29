@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  console.log("🚀 Deploying CloudFHE to Sepolia testnet...");
+  console.log("🚀 Deploying RockPaperScissors to Sepolia testnet...");
   
   // Use working Sepolia RPC endpoint
   const sepoliaUrl = "https://rpc.sepolia.org";
@@ -27,30 +27,30 @@ async function main() {
   }
   
   // Deploy contract
-  console.log("\n📦 Deploying CloudFHE contract...");
-  const CloudFHE = await ethers.getContractFactory("CloudFHE");
-  const cloudFHE = await CloudFHE.connect(wallet).deploy();
+  console.log("\n📦 Deploying RockPaperScissors contract...");
+  const RockPaperScissors = await ethers.getContractFactory("RockPaperScissors");
+  const rockPaperScissors = await RockPaperScissors.connect(wallet).deploy();
   
   console.log("⏳ Waiting for deployment...");
-  await cloudFHE.deployed();
+  await rockPaperScissors.deployed();
   
-  console.log("✅ CloudFHE deployed successfully!");
-  console.log("📍 Contract Address:", cloudFHE.address);
-  console.log("🔗 Transaction Hash:", cloudFHE.deployTransaction.hash);
-  console.log("🌐 Explorer:", `https://sepolia.etherscan.io/address/${cloudFHE.address}`);
+  console.log("✅ RockPaperScissors deployed successfully!");
+  console.log("📍 Contract Address:", rockPaperScissors.address);
+  console.log("🔗 Transaction Hash:", rockPaperScissors.deployTransaction.hash);
+  console.log("🌐 Explorer:", `https://sepolia.etherscan.io/address/${rockPaperScissors.address}`);
   
   console.log("\n📝 Next Steps:");
-  console.log("1. Copy this contract address:", cloudFHE.address);
+  console.log("1. Copy this contract address:", rockPaperScissors.address);
   console.log("2. Update frontend/.env:");
-  console.log(`   REACT_APP_CLOUDFHE_ADDR=${cloudFHE.address}`);
+  console.log(`   REACT_APP_CLOUDFHE_ADDR=${rockPaperScissors.address}`);
   console.log("3. Redeploy frontend:");
   console.log("   vercel --prod");
   
-  console.log("\n🎉 Your CloudFHE contract is now live on Sepolia testnet!");
+  console.log("\n🎉 Your RockPaperScissors contract is now live on Sepolia testnet!");
   
   // Save contract address to file
   const fs = require('fs');
-  fs.writeFileSync('deployed-contract.txt', cloudFHE.address);
+  fs.writeFileSync('deployed-contract.txt', rockPaperScissors.address);
   console.log("💾 Contract address saved to deployed-contract.txt");
 }
 

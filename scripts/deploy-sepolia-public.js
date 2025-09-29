@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 require("dotenv").config();
 
 async function main() {
-  console.log("🚀 Deploying CloudFHE to Sepolia testnet using public RPC...");
+  console.log("🚀 Deploying RockPaperScissors to Sepolia testnet using public RPC...");
   
   // Use public Sepolia RPC endpoint
   const sepoliaUrl = process.env.SEPOLIA_URL || "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161";
@@ -37,27 +37,27 @@ async function main() {
   }
   
   // Deploy contract
-  console.log("\n📦 Deploying CloudFHE contract...");
-  const CloudFHE = await ethers.getContractFactory("CloudFHE");
-  const cloudFHE = await CloudFHE.connect(wallet).deploy();
+  console.log("\n📦 Deploying RockPaperScissors contract...");
+  const RockPaperScissors = await ethers.getContractFactory("RockPaperScissors");
+  const rockPaperScissors = await RockPaperScissors.connect(wallet).deploy();
   
   console.log("⏳ Waiting for deployment...");
-  await cloudFHE.deployed();
+  await rockPaperScissors.deployed();
   
-  console.log("✅ CloudFHE deployed successfully!");
-  console.log("📍 Contract Address:", cloudFHE.address);
-  console.log("🔗 Transaction Hash:", cloudFHE.deployTransaction.hash);
-  console.log("🌐 Explorer:", `https://sepolia.etherscan.io/address/${cloudFHE.address}`);
+  console.log("✅ RockPaperScissors deployed successfully!");
+  console.log("📍 Contract Address:", rockPaperScissors.address);
+  console.log("🔗 Transaction Hash:", rockPaperScissors.deployTransaction.hash);
+  console.log("🌐 Explorer:", `https://sepolia.etherscan.io/address/${rockPaperScissors.address}`);
   
   // Verify contract on Etherscan
   if (process.env.ETHERSCAN_API_KEY && process.env.ETHERSCAN_API_KEY !== 'your_etherscan_api_key') {
     console.log("\n⏳ Waiting for block confirmations for verification...");
-    await cloudFHE.deployTransaction.wait(6);
+    await rockPaperScissors.deployTransaction.wait(6);
     
     try {
       console.log("🔍 Verifying contract on Etherscan...");
       await hre.run("verify:verify", {
-        address: cloudFHE.address,
+        address: rockPaperScissors.address,
         constructorArguments: [],
       });
       console.log("✅ Contract verified on Etherscan!");
@@ -67,13 +67,13 @@ async function main() {
   }
   
   console.log("\n📝 Next Steps:");
-  console.log("1. Copy this contract address:", cloudFHE.address);
+  console.log("1. Copy this contract address:", rockPaperScissors.address);
   console.log("2. Update frontend/.env:");
-  console.log(`   REACT_APP_CLOUDFHE_ADDR=${cloudFHE.address}`);
+  console.log(`   REACT_APP_CLOUDFHE_ADDR=${rockPaperScissors.address}`);
   console.log("3. Redeploy frontend:");
   console.log("   vercel --prod");
   
-  console.log("\n🎉 Your CloudFHE contract is now live on Sepolia testnet!");
+  console.log("\n🎉 Your RockPaperScissors contract is now live on Sepolia testnet!");
 }
 
 main()

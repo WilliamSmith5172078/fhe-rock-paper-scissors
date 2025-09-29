@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 CloudFHE Sepolia Setup Helper\n');
+console.log('🔧 RockPaperScissors Sepolia Setup Helper\n');
 
 const envPath = path.join(__dirname, '.env');
 

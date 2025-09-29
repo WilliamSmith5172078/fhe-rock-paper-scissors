@@ -1,29 +1,29 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  console.log("🚀 Deploying CloudFHE to local network...");
+  console.log("🚀 Deploying RockPaperScissors to local network...");
   
   // Get the contract factory
-  const CloudFHE = await ethers.getContractFactory("CloudFHE");
+  const RockPaperScissors = await ethers.getContractFactory("RockPaperScissors");
   
   // Deploy the contract
   console.log("📦 Deploying contract...");
-  const cloudFHE = await CloudFHE.deploy();
+  const rockPaperScissors = await RockPaperScissors.deploy();
   
   // Wait for deployment to complete
-  await cloudFHE.deployed();
+  await rockPaperScissors.deployed();
   
-  console.log("✅ CloudFHE deployed to:", cloudFHE.address);
+  console.log("✅ RockPaperScissors deployed to:", rockPaperScissors.address);
   console.log("🔗 Network: Local Hardhat");
-  console.log("📋 Transaction hash:", cloudFHE.deployTransaction.hash);
+  console.log("📋 Transaction hash:", rockPaperScissors.deployTransaction.hash);
   
   console.log("\n📝 Contract Details:");
-  console.log("- Address:", cloudFHE.address);
+  console.log("- Address:", rockPaperScissors.address);
   console.log("- Network: Local Hardhat (Chain ID: 31337)");
   
   // Save contract address
   const fs = require('fs');
-  fs.writeFileSync('deployed-contract-local.txt', cloudFHE.address);
+  fs.writeFileSync('deployed-contract-local.txt', rockPaperScissors.address);
   console.log("💾 Contract address saved to deployed-contract-local.txt");
   
   console.log("\n🌐 For Sepolia deployment:");
