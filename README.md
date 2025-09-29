@@ -83,7 +83,6 @@ npm install
 
 ### 2. Configure env
 
-创建根目录 `.env` 文件：
 
 ```bash
 # Private key (for deploy)
@@ -95,8 +94,6 @@ SEPOLIA_URL=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
 # Etherscan API key
 ETHERSCAN_API_KEY=your_etherscan_api_key
 ```
-
-创建 `frontend/.env` 文件：
 
 ```bash
 # Contract address
